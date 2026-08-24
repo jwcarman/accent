@@ -118,7 +118,7 @@ class SkipLockedContentionIT {
       new CockroachContainer(DockerImageName.parse("cockroachdb/cockroach:latest-v24.1"));
 
   @Test
-  void cockroachContentionResult() throws SQLException {
+  void cockroachSkipsLockedRowsAndSaysSo() throws SQLException {
     try (var first =
             Drivers.connect(
                 new org.postgresql.Driver(),
@@ -135,7 +135,7 @@ class SkipLockedContentionIT {
       var skips = SkipLockedContention.skipsLockedRows(first, second);
       var platform = Accent.of(second);
 
-      System.out.println("MEASURED cockroach skips=" + skips);
+      assertThat(skips).isTrue();
       assertThat(platform.supportsSkipLocked())
           .as("the arm must report what contention actually proved")
           .isEqualTo(skips);

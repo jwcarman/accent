@@ -55,17 +55,20 @@ class PlatformTest {
 
   @Test
   void onlyArmsProvenByContentionClaimSkipLocked() {
-    // VERSION is a PostgreSQL 17 reading, so PostgreSQL, MySQL and MariaDB all answer true here.
+    // VERSION is a PostgreSQL 17 reading, so PostgreSQL, MySQL, MariaDB and CockroachDB all
+    // answer true here.
     assertThat(new PostgreSQL(VERSION).supportsSkipLocked()).isTrue();
     assertThat(new MySQL(VERSION).supportsSkipLocked()).isTrue();
     assertThat(new MariaDB(VERSION).supportsSkipLocked()).isTrue();
+    assertThat(new CockroachDB(VERSION).supportsSkipLocked()).isTrue();
 
     assertThat(allArms())
         .filteredOn(
             platform ->
                 !(platform instanceof PostgreSQL)
                     && !(platform instanceof MySQL)
-                    && !(platform instanceof MariaDB))
+                    && !(platform instanceof MariaDB)
+                    && !(platform instanceof CockroachDB))
         .allSatisfy(platform -> assertThat(platform.supportsSkipLocked()).isFalse());
   }
 

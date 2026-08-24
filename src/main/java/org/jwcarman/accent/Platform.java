@@ -76,7 +76,22 @@ public sealed interface Platform {
    * PostgreSQL version number. Its {@link #version()} therefore describes PostgreSQL, not
    * CockroachDB. accent identifies it by querying {@code SELECT version()}.
    */
-  record CockroachDB(Version version) implements Platform {}
+  record CockroachDB(Version version) implements Platform {
+
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Verified by contention test against CockroachDB 24.1: a second connection genuinely
+     * skips a row locked by a first rather than blocking. Unconditionally {@code true} rather
+     * than version-gated, because {@link #version()} here describes the PostgreSQL release
+     * CockroachDB emulates, not CockroachDB's own release number — there is no meaningful major
+     * or minor to gate on. No lower bound was tested; only 24.1 was measured.
+     */
+    @Override
+    public boolean supportsSkipLocked() {
+      return true;
+    }
+  }
 
   /**
    * YugabyteDB.
