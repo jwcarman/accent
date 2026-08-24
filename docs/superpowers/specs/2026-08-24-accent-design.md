@@ -36,8 +36,13 @@ thirteen. The cost is one extra level in deconstruction patterns
 (`case MySQL(Version(_, _, int major, _))`); callers who want a scalar can use
 the accessor and a guard instead (`case MySQL m when m.majorVersion() >= 8`).
 
-`Version`'s canonical constructor validates: product name and version
-non-null, major and minor non-negative.
+`Version`'s canonical constructor validates only that product name and
+product version are non-null; major and minor are not range-checked. This is
+deliberate, not an oversight: §2.1's "raw driver output, always" and the role
+of `Unknown` (not an exception) as the answer for a database accent doesn't
+recognise both argue against rejecting a strange-but-real major/minor. A
+negative value here would already be "asked, got a strange answer" — turning
+that into a thrown exception is a worse outcome than passing it through.
 
 `Unknown` needs no additional components. `Version` already carries the raw
 strings §3.2 requires for actionable logging and gap reports.
@@ -118,8 +123,12 @@ Docker and no mocking beyond `DatabaseMetaData` at the `Accent` boundary.
 
 Ordering is part of the contract: impostor checks run before the host they
 impersonate (CockroachDB and YugabyteDB before PostgreSQL, MariaDB before
-MySQL). Matching is case-insensitive and uses prefix or contains checks, never
-equality, per §5.
+MySQL). Matching is case-insensitive throughout. Five of `Detector`'s ten
+branches use prefix or contains checks, where that is what the driver
+guarantees (Db2's product name carries a host-architecture suffix, for
+example); the other five use equality, where reconnaissance established the
+exact product name and equality avoids sweeping in unrelated forks. `Detector`
+itself documents this as the real rule — see its class javadoc.
 
 Failure policy per §4.1: a `SQLException` surfaces as unchecked
 `AccentException` carrying the cause. `Unknown` is never returned for a
