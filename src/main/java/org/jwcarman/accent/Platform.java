@@ -266,6 +266,10 @@ public sealed interface Platform {
    *
    * <p>{@code Unknown} means "asked, did not recognise". It never means "could not ask" — a failure
    * to reach the database raises {@link AccentException} instead.
+   *
+   * <p>{@link #supportsSkipLocked()} correctly inherits {@code false}. accent does not know what
+   * database this is, so it cannot claim any capability for it — {@code false} is the only safe
+   * answer.
    */
   record Unknown(Version version) implements Platform {}
 

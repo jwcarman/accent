@@ -177,8 +177,11 @@ class DetectorTest {
     }
 
     @Test
-    void doesNotMistakeCockroachForPostgresBecauseTheVersionQueryLeads() {
-      // Cockroach's version() does not even begin with "PostgreSQL".
+    void cockroachVersionQueryPinsTheObservedStringThatDoesNotStartWithPostgres() {
+      // Pins the observed fixture, not production code: detectsCockroachWhoseMetadataIsIndis-
+      // tinguishableFromPostgres already exercises Detector against this same fixture. This test
+      // exists so a future edit to ObservedStrings.COCKROACH_VERSION_QUERY that accidentally makes
+      // it start with "PostgreSQL" is caught here, at the fixture, rather than only downstream.
       assertThat(ObservedStrings.COCKROACH_VERSION_QUERY).doesNotStartWith("PostgreSQL");
     }
 

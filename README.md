@@ -183,7 +183,7 @@ slow and licence-gated. Db2 publishes no `linux/arm64` manifest, so on Apple
 Silicon it runs only under amd64 emulation and is noticeably slow; CI runs it
 natively on `linux/amd64` runners, where it takes about 70 seconds (Oracle
 takes about 15). All heavyweight containers need Docker running locally. The
-full matrix — 60 unit tests and 23 integration tests, Oracle and Db2 included —
+full matrix — 61 unit tests and 23 integration tests, Oracle and Db2 included —
 runs green on every pull request; CI does not exclude any test group.
 
 ## Coordinates

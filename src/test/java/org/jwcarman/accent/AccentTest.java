@@ -3,6 +3,7 @@ package org.jwcarman.accent;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -152,6 +153,24 @@ class AccentTest {
         metaData(ObservedStrings.POSTGRES_NAME, ObservedStrings.POSTGRES_VERSION, 17, 10, null);
 
     assertThat(Accent.of(metaData)).isInstanceOf(Platform.Unknown.class);
+  }
+
+  @Test
+  void reportsACloseFailureDistinctlyFromAnOpenFailure() throws SQLException {
+    var metaData = metaData(ObservedStrings.H2_NAME, ObservedStrings.H2_VERSION, 2, 3, null);
+    var connection = mock(Connection.class);
+    when(connection.getMetaData()).thenReturn(metaData);
+    var cause = new SQLException("connection reset");
+    doThrow(cause).when(connection).close();
+    var dataSource = mock(DataSource.class);
+    when(dataSource.getConnection()).thenReturn(connection);
+
+    // Detection itself succeeded; only close() failed. That must not be reported with the
+    // "could not open a connection" message, which would misdescribe where the failure occurred.
+    assertThatExceptionOfType(AccentException.class)
+        .isThrownBy(() -> Accent.of(dataSource))
+        .withCause(cause)
+        .withMessageContaining("could not close");
   }
 
   @Test

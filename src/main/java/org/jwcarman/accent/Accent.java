@@ -40,7 +40,8 @@ public final class Accent {
    *
    * @param dataSource the data source to interrogate
    * @return the platform behind it, or {@link Platform.Unknown} if accent does not recognise it
-   * @throws AccentException if the database could not be reached or read
+   * @throws AccentException if the database could not be reached or read, or a resulting connection
+   *     could not be closed
    */
   public static Platform of(DataSource dataSource) {
     return builder().of(dataSource);
@@ -112,14 +113,38 @@ public final class Accent {
      * Identifies the database behind a {@link DataSource}, opening and closing a connection.
      *
      * @param dataSource the data source to interrogate
-     * @return the platform behind it
-     * @throws AccentException if the database could not be reached or read
+     * @return the platform behind it, or {@link Platform.Unknown} if accent does not recognise it
+     *     and no fallback resolves it
+     * @throws AccentException if the database could not be reached, read, or a resulting connection
+     *     could not be closed
      */
     public Platform of(DataSource dataSource) {
-      try (Connection connection = dataSource.getConnection()) {
-        return of(connection);
+      Connection connection;
+      try {
+        connection = dataSource.getConnection();
       } catch (SQLException e) {
         throw new AccentException("could not open a connection to identify the database", e);
+      }
+      try {
+        var platform = of(connection);
+        closeAfterDetection(connection);
+        return platform;
+      } catch (RuntimeException e) {
+        try {
+          connection.close();
+        } catch (SQLException suppressed) {
+          e.addSuppressed(suppressed);
+        }
+        throw e;
+      }
+    }
+
+    private static void closeAfterDetection(Connection connection) {
+      try {
+        connection.close();
+      } catch (SQLException e) {
+        throw new AccentException(
+            "could not close the connection after identifying the database", e);
       }
     }
 
@@ -127,7 +152,8 @@ public final class Accent {
      * Identifies the database behind a {@link Connection}, which is left open.
      *
      * @param connection the connection to interrogate
-     * @return the platform behind it
+     * @return the platform behind it, or {@link Platform.Unknown} if accent does not recognise it
+     *     and no fallback resolves it
      * @throws AccentException if the database could not be read
      */
     public Platform of(Connection connection) {
@@ -142,7 +168,8 @@ public final class Accent {
      * Identifies the database behind a {@link DatabaseMetaData}.
      *
      * @param metaData the metadata to interrogate
-     * @return the platform behind it
+     * @return the platform behind it, or {@link Platform.Unknown} if accent does not recognise it
+     *     and no fallback resolves it
      * @throws AccentException if the database could not be read
      */
     public Platform of(DatabaseMetaData metaData) {

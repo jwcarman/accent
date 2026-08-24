@@ -57,8 +57,15 @@ class EmbeddedEngineTest {
 
   @Test
   void noEmbeddedEngineIncursAVersionQuery() throws SQLException {
-    // None of these is in the PostgreSQL family, so none should pay for a round trip.
-    // Asserted indirectly: detection succeeds on SQLite, whose driver rejects SELECT version().
+    // None of these is in the PostgreSQL family, so none should pay for a round trip. Asserted
+    // indirectly: detection must succeed on every one of them, and SQLite's driver rejects
+    // SELECT version() outright, so a regression that queried it here would surface as an
+    // AccentException rather than a silently wrong Platform.
+    assertThat(detect("jdbc:h2:mem:accent_h2_novq;DB_CLOSE_DELAY=-1"))
+        .isInstanceOf(Platform.H2.class);
+    assertThat(detect("jdbc:hsqldb:mem:accent_hsqldb_novq")).isInstanceOf(Platform.HSQLDB.class);
     assertThat(detect("jdbc:sqlite::memory:")).isInstanceOf(Platform.SQLite.class);
+    assertThat(detect("jdbc:derby:memory:accent_derby_novq;create=true"))
+        .isInstanceOf(Platform.Derby.class);
   }
 }
