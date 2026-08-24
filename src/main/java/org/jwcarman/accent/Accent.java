@@ -182,6 +182,9 @@ public final class Accent {
     /**
      * Identifies the database behind a {@link DatabaseMetaData}.
      *
+     * <p>For the PostgreSQL family this reaches the connection via {@link
+     * DatabaseMetaData#getConnection()} to issue {@code SELECT version()}.
+     *
      * @param metaData the metadata to interrogate
      * @return the platform behind it, or {@link Platform.Unknown} if accent does not recognise it
      *     and no fallback resolves it

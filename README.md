@@ -26,15 +26,26 @@ String claimSql = platform.supportsSkipLocked()
 
 Callers who need the exact per-platform SQL — not just a yes/no answer — can
 switch exhaustively instead. Grouping is a feature of the sealed design: every
-arm that genuinely skips a locked row shares one `case` label, because
-`switch` doesn't care *why* seven different engines agree, only that they do:
+arm that genuinely skips a locked row *unconditionally* shares one `case`
+label. `PostgreSQL`, `MySQL`, `MariaDB`, and `Oracle` only skip above a version
+floor, so those arms consult `supportsSkipLocked()` in a guard rather than
+being assumed — the same predicate the one-liner above already calls, so the
+switch can never emit `SKIP LOCKED` against a version below the floor it
+encodes:
 
 ```java
 String claimSql = switch (platform) {
-    case PostgreSQL _, CockroachDB _, YugabyteDB _, MySQL _, MariaDB _, Oracle _, H2 _
+    // Genuinely skips regardless of version — see docs/capabilities.md.
+    case CockroachDB _, YugabyteDB _, H2 _
         -> "SELECT ... FOR UPDATE SKIP LOCKED";
+    // Version-sensitive: consult the predicate that encodes the floor.
+    case PostgreSQL p when p.supportsSkipLocked() -> "SELECT ... FOR UPDATE SKIP LOCKED";
+    case MySQL m when m.supportsSkipLocked() -> "SELECT ... FOR UPDATE SKIP LOCKED";
+    case MariaDB m when m.supportsSkipLocked() -> "SELECT ... FOR UPDATE SKIP LOCKED";
+    case Oracle o when o.supportsSkipLocked() -> "SELECT ... FOR UPDATE SKIP LOCKED";
     case SqlServer s -> "SELECT ... WITH (UPDLOCK, READPAST)"; // a different statement, not a spelling
-    case Db2 _, HSQLDB _, SQLite _, Derby _, Unknown _ -> "SELECT ... FOR UPDATE"; // safe fallback
+    case PostgreSQL _, MySQL _, MariaDB _, Oracle _, Db2 _, HSQLDB _, SQLite _, Derby _, Unknown _
+        -> "SELECT ... FOR UPDATE"; // safe fallback, including versions below the floor
 };
 ```
 
