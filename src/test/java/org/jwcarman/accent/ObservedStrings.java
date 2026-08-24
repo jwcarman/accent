@@ -41,6 +41,10 @@ final class ObservedStrings {
       "CockroachDB CCL v24.1.32 (aarch64-unknown-linux-gnu, built 2026/07/22 12:34:17,"
           + " go1.22.12 X:nocoverageredesign)";
 
+  /** Below the measured skip-locked floor: v22.1.22 genuinely does not skip. */
+  static final String COCKROACH_VERSION_QUERY_V22_1 =
+      "CockroachDB CCL v22.1.22 (x86_64-pc-linux-gnu, built 2023/08/14 14:43:28, go1.17.11)";
+
   static final String YUGABYTE_NAME = "PostgreSQL";
   static final String YUGABYTE_VERSION = "11.2-YB-2024.1.0.0-b0";
   static final String YUGABYTE_VERSION_QUERY =

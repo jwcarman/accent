@@ -181,6 +181,43 @@ class DetectorTest {
     }
 
     @Test
+    void parsesCockroachsOwnVersionOutOfTheVersionQuery() {
+      var fingerprint =
+          queried(
+              ObservedStrings.COCKROACH_NAME,
+              ObservedStrings.COCKROACH_VERSION,
+              ObservedStrings.COCKROACH_VERSION_QUERY);
+
+      var platform = (CockroachDB) Detector.detect(fingerprint);
+
+      assertThat(platform.engine().raw()).isEqualTo(ObservedStrings.COCKROACH_VERSION_QUERY);
+      assertThat(platform.engine().major()).isEqualTo(24);
+      assertThat(platform.engine().minor()).isEqualTo(1);
+    }
+
+    @Test
+    void parsesCockroachsBelowFloorVersionAndReportsNoSkipLocked() {
+      var fingerprint =
+          queried("PostgreSQL", "13.0.0", ObservedStrings.COCKROACH_VERSION_QUERY_V22_1);
+
+      var platform = (CockroachDB) Detector.detect(fingerprint);
+
+      assertThat(platform.engine().major()).isEqualTo(22);
+      assertThat(platform.engine().minor()).isEqualTo(1);
+      assertThat(platform.supportsSkipLocked()).isFalse();
+    }
+
+    @Test
+    void anUnparseableCockroachVersionQueryYieldsZeroMajorAndMinor() {
+      var fingerprint = queried("PostgreSQL", "13.0.0", "cockroachdb, but no version number here");
+
+      var platform = (CockroachDB) Detector.detect(fingerprint);
+
+      assertThat(platform.engine().major()).isEqualTo(0);
+      assertThat(platform.engine().minor()).isEqualTo(0);
+    }
+
+    @Test
     void detectsYugabyte() {
       var fingerprint =
           queried(
@@ -189,6 +226,32 @@ class DetectorTest {
               ObservedStrings.YUGABYTE_VERSION_QUERY);
 
       assertThat(Detector.detect(fingerprint)).isInstanceOf(YugabyteDB.class);
+    }
+
+    @Test
+    void parsesYugabytesOwnVersionOutOfTheVersionQuery() {
+      var fingerprint =
+          queried(
+              ObservedStrings.YUGABYTE_NAME,
+              ObservedStrings.YUGABYTE_VERSION,
+              ObservedStrings.YUGABYTE_VERSION_QUERY);
+
+      var platform = (YugabyteDB) Detector.detect(fingerprint);
+
+      assertThat(platform.engine().raw()).isEqualTo(ObservedStrings.YUGABYTE_VERSION_QUERY);
+      assertThat(platform.engine().major()).isEqualTo(2024);
+      assertThat(platform.engine().minor()).isEqualTo(1);
+    }
+
+    @Test
+    void anUnparseableYugabyteVersionQueryYieldsZeroMajorAndMinor() {
+      var fingerprint =
+          queried("PostgreSQL", "11.2", "postgresql 11.2-YB- but no version number follows");
+
+      var platform = (YugabyteDB) Detector.detect(fingerprint);
+
+      assertThat(platform.engine().major()).isEqualTo(0);
+      assertThat(platform.engine().minor()).isEqualTo(0);
     }
 
     @Test
