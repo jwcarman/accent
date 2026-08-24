@@ -217,6 +217,22 @@ class PlatformTest {
   }
 
   @Test
+  void h2BelowTwoPointTwoDoesNotClaimSkipLocked() {
+    // 2.1.214 genuinely does not skip: Syntax error in SQL statement "... FOR UPDATE SKIP[*]
+    // LOCKED".
+    var old = new Version("H2", "2.1.214", 2, 1);
+
+    assertThat(new H2(old).supportsSkipLocked()).isFalse();
+  }
+
+  @Test
+  void h2AtTwoPointTwoClaimsSkipLocked() {
+    var boundary = new Version("H2", "2.2.224", 2, 2);
+
+    assertThat(new H2(boundary).supportsSkipLocked()).isTrue();
+  }
+
+  @Test
   void theVocabularyIsExhaustivelySwitchableWithoutADefault() {
     // This method does not compile if an arm is added and not handled. That is the product.
     Platform platform = new Unknown(VERSION);

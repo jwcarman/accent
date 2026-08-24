@@ -268,18 +268,24 @@ public sealed interface Platform {
   /** H2. */
   record H2(Version version) implements Platform {
 
+    private static final int SKIP_LOCKED_MAJOR = 2;
+    private static final int SKIP_LOCKED_MINOR = 2;
+
     /**
      * {@inheritDoc}
      *
-     * <p>H2 parses {@code FOR UPDATE SKIP LOCKED}, which contradicted an earlier guess that it
-     * would not. Whether it genuinely skips was unknown until measured: a contention test against
-     * H2 2.3.232 confirms a second connection does skip a row locked by a first rather than
-     * blocking. Unconditionally {@code true} because no earlier H2 version was tested and no
-     * documented floor is known; only 2.3.232 was measured.
+     * <p>This is a discovered boundary, not a guess: contention testing across a classpath matrix
+     * (H2 is not containerisable, so each version's jar was run in turn against the same contention
+     * harness) found 1.4.200, 2.0.206, and 2.1.214 all genuinely reject the clause with a syntax
+     * error — {@code Syntax error in SQL statement "... FOR UPDATE SKIP[*] LOCKED"} — while 2.2.224
+     * and 2.3.232 both genuinely skip. H2 reports its own version honestly, so unlike CockroachDB
+     * or YugabyteDB this needs no separate {@code engine()} component; the floor gates directly on
+     * {@link #majorVersion()}/{@link #minorVersion()}.
      */
     @Override
     public boolean supportsSkipLocked() {
-      return true;
+      return majorVersion() > SKIP_LOCKED_MAJOR
+          || (majorVersion() == SKIP_LOCKED_MAJOR && minorVersion() >= SKIP_LOCKED_MINOR);
     }
   }
 
