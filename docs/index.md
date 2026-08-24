@@ -14,15 +14,22 @@ to be handled:
 ```java
 Platform platform = Accent.of(dataSource);
 
+// Most callers stop here — one measured predicate, not a switch.
+String claimSql = platform.supportsSkipLocked()
+    ? "SELECT ... FOR UPDATE SKIP LOCKED"
+    : "SELECT ... FOR UPDATE";
+```
+
+Callers who need the exact per-platform SQL can switch exhaustively instead;
+grouping is a feature of the sealed design, so every arm that genuinely skips
+a locked row shares one `case` label:
+
+```java
 String claimSql = switch (platform) {
-    case PostgreSQL p   -> "SELECT ... FOR UPDATE SKIP LOCKED";
-    case CockroachDB c  -> "SELECT ... FOR UPDATE";            // NOT the same semantics
-    case MySQL m        -> m.majorVersion() >= 8
-                             ? "SELECT ... FOR UPDATE SKIP LOCKED"
-                             : "SELECT ... FOR UPDATE";
-    case SqlServer s    -> "SELECT ... WITH (READPAST, UPDLOCK)";
-    case Unknown u      -> throw new UnsupportedOperationException(u.productName());
-    // ... every other arm
+    case PostgreSQL _, CockroachDB _, YugabyteDB _, MySQL _, MariaDB _, Oracle _, H2 _
+        -> "SELECT ... FOR UPDATE SKIP LOCKED";
+    case SqlServer s -> "SELECT ... WITH (UPDLOCK, READPAST)"; // a different statement, not a spelling
+    case Db2 _, HSQLDB _, SQLite _, Derby _, Unknown _ -> "SELECT ... FOR UPDATE"; // safe fallback
 };
 ```
 

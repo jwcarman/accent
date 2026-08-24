@@ -18,17 +18,30 @@ and let the compiler force every case to be handled:
 ```java
 Platform platform = Accent.of(dataSource);
 
+// Most callers stop here — one measured predicate, not a switch.
+String claimSql = platform.supportsSkipLocked()
+    ? "SELECT ... FOR UPDATE SKIP LOCKED"
+    : "SELECT ... FOR UPDATE";
+```
+
+Callers who need the exact per-platform SQL — not just a yes/no answer — can
+switch exhaustively instead. Grouping is a feature of the sealed design: every
+arm that genuinely skips a locked row shares one `case` label, because
+`switch` doesn't care *why* seven different engines agree, only that they do:
+
+```java
 String claimSql = switch (platform) {
-    case PostgreSQL p   -> "SELECT ... FOR UPDATE SKIP LOCKED";
-    case CockroachDB c  -> "SELECT ... FOR UPDATE";            // NOT the same semantics
-    case MySQL m        -> m.majorVersion() >= 8
-                             ? "SELECT ... FOR UPDATE SKIP LOCKED"
-                             : "SELECT ... FOR UPDATE";
-    case SqlServer s    -> "SELECT ... WITH (READPAST, UPDLOCK)";
-    case Unknown u      -> throw new UnsupportedOperationException(u.productName());
-    // ... every other arm
+    case PostgreSQL _, CockroachDB _, YugabyteDB _, MySQL _, MariaDB _, Oracle _, H2 _
+        -> "SELECT ... FOR UPDATE SKIP LOCKED";
+    case SqlServer s -> "SELECT ... WITH (UPDLOCK, READPAST)"; // a different statement, not a spelling
+    case Db2 _, HSQLDB _, SQLite _, Derby _, Unknown _ -> "SELECT ... FOR UPDATE"; // safe fallback
 };
 ```
+
+Every arm in the first `case` is backed by a contention test — see
+[`docs/observed-strings.md`](docs/observed-strings.md) for the measurement
+behind each one, including why CockroachDB genuinely skips despite an earlier
+guess (still visible in [`SPEC.md`](SPEC.md#1-what-it-is)) that it wouldn't.
 
 Zero runtime dependencies. Plain JDBC only.
 
@@ -78,9 +91,9 @@ exhaustively without one, treat every accent upgrade as a potential binary
 break and recompile against it. This is accepted as the honest price of
 compile-time certainty, not something the library works around.
 
-If you don't want a fourteen-arm switch at all, most callers don't need one —
-call `platform.supportsSkipLocked()` for the one capability accent currently
-exposes and skip the `switch` entirely.
+If you don't want an exhaustive switch over all thirteen arms at all, most
+callers don't need one — call `platform.supportsSkipLocked()` for the one
+capability accent currently exposes and skip the `switch` entirely.
 
 ## What accent is for — and is not
 
@@ -170,7 +183,7 @@ slow and licence-gated. Db2 publishes no `linux/arm64` manifest, so on Apple
 Silicon it runs only under amd64 emulation and is noticeably slow; CI runs it
 natively on `linux/amd64` runners, where it takes about 70 seconds (Oracle
 takes about 15). All heavyweight containers need Docker running locally. The
-full matrix — 56 unit tests and 23 integration tests, Oracle and Db2 included —
+full matrix — 60 unit tests and 23 integration tests, Oracle and Db2 included —
 runs green on every pull request; CI does not exclude any test group.
 
 ## Coordinates

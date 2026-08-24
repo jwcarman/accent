@@ -14,13 +14,14 @@ import org.jwcarman.accent.Platform.Version;
  * <pre>{@code
  * Platform platform = Accent.of(dataSource);
  *
- * String claimSql = switch (platform) {
- *     case PostgreSQL p  -> "SELECT ... FOR UPDATE SKIP LOCKED";
- *     case CockroachDB c -> "SELECT ... FOR UPDATE";
- *     case Unknown u     -> throw new UnsupportedOperationException(u.productName());
- *     // every other arm
- * };
+ * // Most callers want one capability answer, not a switch.
+ * String claimSql = platform.supportsSkipLocked()
+ *     ? "SELECT ... FOR UPDATE SKIP LOCKED"
+ *     : "SELECT ... FOR UPDATE";
  * }</pre>
+ *
+ * <p>Callers who need the exact per-platform SQL can switch exhaustively instead; see the <a
+ * href="https://github.com/jwcarman/accent#readme">README</a> for that form.
  *
  * <p>Detection reads {@link DatabaseMetaData}. For the PostgreSQL family only, it also issues
  * {@code SELECT version()}, because CockroachDB and YugabyteDB both report a product name of {@code

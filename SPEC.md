@@ -34,6 +34,14 @@ String claimSql = switch (platform) {
 };
 ```
 
+> **This was the pre-implementation guess.** The `CockroachDB` line above is
+> wrong: contention testing found CockroachDB genuinely honours
+> `FOR UPDATE SKIP LOCKED`, and `Platform.CockroachDB#supportsSkipLocked()`
+> returns `true`. This example is left as originally written — §5 already
+> flags its tables as hypotheses, not measurements — but do not copy it. See
+> [`docs/observed-strings.md`](docs/observed-strings.md) for what was actually
+> measured, and the README for the corrected example.
+
 ## 2. Why it needs to exist
 
 `DatabaseMetaData.getDatabaseProductName()` is five lines away and *insufficient*.
