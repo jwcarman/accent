@@ -88,6 +88,13 @@ class PlatformTest {
   }
 
   @Test
+  void postgresWithMajorBelowTheFloorDoesNotClaimSkipLocked() {
+    var old = new Version("PostgreSQL", "8.4.22", 8, 4);
+
+    assertThat(new PostgreSQL(old).supportsSkipLocked()).isFalse();
+  }
+
+  @Test
   void postgresAtNinePointFiveClaimsSkipLocked() {
     var boundary = new Version("PostgreSQL", "9.5.25", 9, 5);
 
@@ -111,6 +118,13 @@ class PlatformTest {
   @Test
   void mariadbBelowTenPointSixDoesNotClaimSkipLocked() {
     var old = new Version("MySQL", "10.5.24-MariaDB", 10, 5);
+
+    assertThat(new MariaDB(old).supportsSkipLocked()).isFalse();
+  }
+
+  @Test
+  void mariadbWithMajorBelowTheFloorDoesNotClaimSkipLocked() {
+    var old = new Version("MySQL", "5.5.68-MariaDB", 5, 5);
 
     assertThat(new MariaDB(old).supportsSkipLocked()).isFalse();
   }

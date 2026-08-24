@@ -134,6 +134,27 @@ class AccentTest {
   }
 
   @Test
+  void raisesAccentExceptionWhenTheConnectionCannotReadItsOwnMetadata() throws SQLException {
+    var connection = mock(Connection.class);
+    var cause = new SQLException("connection closed");
+    when(connection.getMetaData()).thenThrow(cause);
+
+    assertThatExceptionOfType(AccentException.class)
+        .isThrownBy(() -> Accent.of(connection))
+        .withCause(cause);
+  }
+
+  @Test
+  void anEmptyVersionQueryResultYieldsUnknownRatherThanAGuess() throws SQLException {
+    // A PostgreSQL-family server whose SELECT version() yields no rows: resultSet.next() returns
+    // false, so queryVersion() returns null rather than guessing PostgreSQL.
+    var metaData =
+        metaData(ObservedStrings.POSTGRES_NAME, ObservedStrings.POSTGRES_VERSION, 17, 10, null);
+
+    assertThat(Accent.of(metaData)).isInstanceOf(Platform.Unknown.class);
+  }
+
+  @Test
   void raisesAccentExceptionWhenTheVersionQueryFails() throws SQLException {
     var metaData =
         metaData(

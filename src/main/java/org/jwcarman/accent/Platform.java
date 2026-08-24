@@ -126,17 +126,17 @@ public sealed interface Platform {
   record MySQL(Version version) implements Platform {
 
     private static final int SKIP_LOCKED_MAJOR = 8;
-    private static final int SKIP_LOCKED_MINOR = 0;
 
     /**
      * {@inheritDoc}
      *
      * <p>{@code SKIP LOCKED} arrived in MySQL 8.0. Verified by contention test against MySQL 8.4.
+     * The floor's minor version is 0, so a major-version comparison alone is sufficient — there is
+     * no minor version below 0 that a major-version match could wrongly exclude.
      */
     @Override
     public boolean supportsSkipLocked() {
-      return majorVersion() > SKIP_LOCKED_MAJOR
-          || (majorVersion() == SKIP_LOCKED_MAJOR && minorVersion() >= SKIP_LOCKED_MINOR);
+      return majorVersion() >= SKIP_LOCKED_MAJOR;
     }
   }
 
