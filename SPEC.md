@@ -1,6 +1,11 @@
 # accent — specification
 
-**Status:** seed spec, not yet implemented
+**Status:** implemented, not yet published. This document is the original
+seed spec, preserved as the record of what was assumed before anything was
+measured — several of its guesses were wrong. See
+`docs/superpowers/specs/2026-08-24-accent-design.md` for the decisions that
+superseded it, and `docs/observed-strings.md` for what measurement actually
+found.
 **Coordinates:** `org.jwcarman.accent:accent`
 **Java:** 25
 **License:** Apache 2.0, © 2026 James Carman

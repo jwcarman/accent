@@ -16,10 +16,19 @@ version. `platform.majorVersion()` on a `CockroachDB` instance is PostgreSQL's
 13, not CockroachDB's 24. Do not write comparisons like
 `cockroach.majorVersion() >= 24` — there is no `24` to compare against.
 
-This is why `CockroachDB#supportsSkipLocked()` and
-`YugabyteDB#supportsSkipLocked()` are unconditional `true` rather than
-version-gated: there is no meaningful major/minor of the actual engine to gate
-on (see [Capabilities](capabilities.md)).
+Both arms carry a second component for this reason: `engine()`, a
+`Platform.EngineVersion` (`raw`, `major`, `minor`) parsed out of the same
+`SELECT version()` string detection already fetches — `v(\d+)\.(\d+)` for
+CockroachDB, `-YB-(\d+)\.(\d+)` for YugabyteDB. `engine().raw()` is the only
+way a caller learns the real CockroachDB or YugabyteDB version, since
+`version()` never will. `CockroachDB#supportsSkipLocked()` and
+`YugabyteDB#supportsSkipLocked()` gate on `engine()`'s major/minor, not on
+`version()`'s: CockroachDB's floor (22.2) is a discovered boundary — v22.1.22
+genuinely rejects `SKIP LOCKED`, v22.2.19 and above genuinely skip — while
+YugabyteDB's floor (2.16) is only the lowest version measured, not a proven
+line. See [Capabilities](capabilities.md) for the full version-series
+evidence, and never deconstruct either record positionally on the assumption
+it still has one component.
 
 ## The thirteen arms
 
@@ -44,11 +53,28 @@ signals (`getSQLKeywords()`, `getMax*NameLength()`,
 keyword list that shifts between releases — see
 [Design](design.md#why-select-version).
 
+The same `SELECT version()` string also carries CockroachDB's own version,
+which `engine()` parses out with `v(\d+)\.(\d+)` — `v24.1.32` becomes major
+24, minor 1. `supportsSkipLocked()` gates on this, not on `version()`: `true`
+when `engine().major() > 22`, or major `== 22` and `engine().minor() >= 2`.
+This floor is a discovered boundary — contention testing found v22.1.22
+genuinely rejects `SKIP LOCKED` (`ERROR: unimplemented: SKIP LOCKED lock wait
+policy is not supported`) while v22.2.19 and above genuinely skip. See
+[Capabilities](capabilities.md).
+
 ### YugabyteDB
 
 Also reports `productName` = `PostgreSQL`. Distinguished by a `-yb-` marker
 (case-insensitive) inside the `SELECT version()` result, e.g.
 `PostgreSQL 11.2-YB-2024.1.0.0-b0 on ...`.
+
+`engine()` parses YugabyteDB's own version out of that same string with
+`-YB-(\d+)\.(\d+)` — `-YB-2.16.9.0-b0` becomes major 2, minor 16;
+`-YB-2024.1.0.0-b0` becomes major 2024, minor 1. `supportsSkipLocked()` gates
+on `engine()`, `true` when `major() > 2` or major `== 2` and `minor() >= 16`.
+Unlike CockroachDB's floor, 2.16 is **not** a discovered boundary — it is the
+lowest version that was measured (2.14.17 would not start on the test
+machine). See [Capabilities](capabilities.md).
 
 ### MySQL
 
@@ -78,11 +104,23 @@ SQL Server 2022.
 ### Oracle
 
 Reports `productName` starting with `Oracle` (prefix match). Its
-`productVersion` spans two lines — `Oracle AI Database 26ai Free Release
-23.26.2.0.0 - Develop, Learn, and Run for Free\nVersion 23.26.2.0.0` — and the
-marketing name and the release number disagree (26ai vs. 23.26). Use
-`majorVersion()` / `minorVersion()` (23 / 26), not string parsing of
-`productVersion`.
+`productVersion` *may* span two lines, and does on 18c and later —
+`gvenzl/oracle-free:23-slim-faststart` reports `Oracle AI Database 26ai Free
+Release 23.26.2.0.0 - Develop, Learn, and Run for Free\nVersion 23.26.2.0.0`,
+where the marketing name and the release number disagree (26ai vs. 23.26). But
+11g XE reports a single line: `Oracle Database 11g Express Edition Release
+11.2.0.2.0 - 64bit Production`. A heuristic anchored with `$` or one that
+requires a newline breaks on one of those two shapes or the other. Use
+`majorVersion()` / `minorVersion()`, not string parsing of `productVersion` —
+accent is unaffected by either shape for exactly this reason.
+
+`supportsSkipLocked()`'s floor (major 11) is the lowest version measured, not
+a discovered boundary: 11.2.0.2, 18.4.0, 21.3.0, and 23.26 all genuinely skip
+by contention test, and no Oracle 10g image is published, so nothing below
+11.2.0.2 could be tested. Note also that Oracle 18c reports
+`getDatabaseMinorVersion()` as `0` despite being release 18.4 — harmless
+today, since this floor is major-only, but worth knowing before adding a
+minor-version comparison to it. See [Capabilities](capabilities.md).
 
 ### Db2
 
@@ -97,6 +135,15 @@ numeric source.
 
 Reports `productName` = `H2` (exact match). Measured as `H2` / `2.3.232
 (2024-08-11)`.
+
+`supportsSkipLocked()`'s floor (2.2) is a discovered boundary: a classpath
+matrix across five H2 versions (H2 is not containerisable, so each version's
+jar was run in turn against the same contention harness) found 1.4.200,
+2.0.206, and 2.1.214 all genuinely reject `FOR UPDATE SKIP LOCKED`, while
+2.2.224 and 2.3.232 genuinely skip. H2 reports its own version honestly, so
+unlike `CockroachDB` or `YugabyteDB` this gates directly on
+`majorVersion()`/`minorVersion()` — no `engine()` component. See
+[Capabilities](capabilities.md).
 
 ### HSQLDB
 

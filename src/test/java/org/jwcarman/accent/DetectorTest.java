@@ -181,6 +181,43 @@ class DetectorTest {
     }
 
     @Test
+    void parsesCockroachsOwnVersionOutOfTheVersionQuery() {
+      var fingerprint =
+          queried(
+              ObservedStrings.COCKROACH_NAME,
+              ObservedStrings.COCKROACH_VERSION,
+              ObservedStrings.COCKROACH_VERSION_QUERY);
+
+      var platform = (CockroachDB) Detector.detect(fingerprint);
+
+      assertThat(platform.engine().raw()).isEqualTo(ObservedStrings.COCKROACH_VERSION_QUERY);
+      assertThat(platform.engine().major()).isEqualTo(24);
+      assertThat(platform.engine().minor()).isEqualTo(1);
+    }
+
+    @Test
+    void parsesCockroachsBelowFloorVersionAndReportsNoSkipLocked() {
+      var fingerprint =
+          queried("PostgreSQL", "13.0.0", ObservedStrings.COCKROACH_VERSION_QUERY_V22_1);
+
+      var platform = (CockroachDB) Detector.detect(fingerprint);
+
+      assertThat(platform.engine().major()).isEqualTo(22);
+      assertThat(platform.engine().minor()).isEqualTo(1);
+      assertThat(platform.supportsSkipLocked()).isFalse();
+    }
+
+    @Test
+    void anUnparseableCockroachVersionQueryYieldsZeroMajorAndMinor() {
+      var fingerprint = queried("PostgreSQL", "13.0.0", "cockroachdb, but no version number here");
+
+      var platform = (CockroachDB) Detector.detect(fingerprint);
+
+      assertThat(platform.engine().major()).isEqualTo(0);
+      assertThat(platform.engine().minor()).isEqualTo(0);
+    }
+
+    @Test
     void detectsYugabyte() {
       var fingerprint =
           queried(
@@ -189,6 +226,32 @@ class DetectorTest {
               ObservedStrings.YUGABYTE_VERSION_QUERY);
 
       assertThat(Detector.detect(fingerprint)).isInstanceOf(YugabyteDB.class);
+    }
+
+    @Test
+    void parsesYugabytesOwnVersionOutOfTheVersionQuery() {
+      var fingerprint =
+          queried(
+              ObservedStrings.YUGABYTE_NAME,
+              ObservedStrings.YUGABYTE_VERSION,
+              ObservedStrings.YUGABYTE_VERSION_QUERY);
+
+      var platform = (YugabyteDB) Detector.detect(fingerprint);
+
+      assertThat(platform.engine().raw()).isEqualTo(ObservedStrings.YUGABYTE_VERSION_QUERY);
+      assertThat(platform.engine().major()).isEqualTo(2024);
+      assertThat(platform.engine().minor()).isEqualTo(1);
+    }
+
+    @Test
+    void anUnparseableYugabyteVersionQueryYieldsZeroMajorAndMinor() {
+      var fingerprint =
+          queried("PostgreSQL", "11.2", "postgresql 11.2-YB- but no version number follows");
+
+      var platform = (YugabyteDB) Detector.detect(fingerprint);
+
+      assertThat(platform.engine().major()).isEqualTo(0);
+      assertThat(platform.engine().minor()).isEqualTo(0);
     }
 
     @Test
@@ -206,6 +269,33 @@ class DetectorTest {
           .isInstanceOf(CockroachDB.class);
       assertThat(Detector.detect(queried("postgresql", "11.2", "postgresql 11.2-yb-2024.1.0.0-b0")))
           .isInstanceOf(YugabyteDB.class);
+    }
+
+    @Test
+    void parsesCockroachsEngineVersionRegardlessOfCase() {
+      // Synthetic, not observed: pins the parser's robustness to a marker case no real driver
+      // has shown accent, not a measured driver behaviour. Detection is already case-insensitive
+      // (see matchesTheMarkersRegardlessOfCase above); this proves engine-version parsing stays
+      // consistent with it rather than silently downgrading a genuine capability to false.
+      var fingerprint = queried("PostgreSQL", "13.0.0", "COCKROACHDB CCL V22.2.19 (...)");
+
+      var platform = (CockroachDB) Detector.detect(fingerprint);
+
+      assertThat(platform.engine().major()).isEqualTo(22);
+      assertThat(platform.engine().minor()).isEqualTo(2);
+      assertThat(platform.supportsSkipLocked()).isTrue();
+    }
+
+    @Test
+    void parsesYugabytesEngineVersionRegardlessOfCase() {
+      // Synthetic, not observed: same purpose as the CockroachDB case above, for the -yb- marker.
+      var fingerprint = queried("PostgreSQL", "11.2", "postgresql 11.2-yb-2.16.9.0-b0 on ...");
+
+      var platform = (YugabyteDB) Detector.detect(fingerprint);
+
+      assertThat(platform.engine().major()).isEqualTo(2);
+      assertThat(platform.engine().minor()).isEqualTo(16);
+      assertThat(platform.supportsSkipLocked()).isTrue();
     }
 
     @Test

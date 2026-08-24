@@ -93,9 +93,10 @@
     <sonar.host.url>https://sonarcloud.io</sonar.host.url>
     <sonar.projectKey>jwcarman_accent</sonar.projectKey>
 
-    <!-- Oracle and Db2 are slow, licence-gated, and Db2 has no arm64 image.
+    <!-- Oracle and Db2 are slow, licence-gated, and Db2 has no arm64 image. floors is the
+         below-floor contention suite, which stands up an extra container per test.
          Run them with -Dexcluded.test.groups= (empty), as CI does. -->
-    <excluded.test.groups>heavy</excluded.test.groups>
+    <excluded.test.groups>heavy,floors</excluded.test.groups>
   </properties>
 
   <dependencyManagement>
@@ -210,6 +211,16 @@
     <dependency>
       <groupId>org.testcontainers</groupId>
       <artifactId>oracle-free</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <!--
+      Separate from oracle-free above: 11g XE predates pluggable databases, so it needs the
+      oracle-xe module's org.testcontainers.containers.OracleContainer, not oracle-free's
+      org.testcontainers.oracle.OracleContainer.
+    -->
+    <dependency>
+      <groupId>org.testcontainers</groupId>
+      <artifactId>oracle-xe</artifactId>
       <scope>test</scope>
     </dependency>
     <dependency>

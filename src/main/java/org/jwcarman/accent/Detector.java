@@ -16,9 +16,12 @@
 package org.jwcarman.accent;
 
 import java.util.Locale;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.jwcarman.accent.Platform.CockroachDB;
 import org.jwcarman.accent.Platform.Db2;
 import org.jwcarman.accent.Platform.Derby;
+import org.jwcarman.accent.Platform.EngineVersion;
 import org.jwcarman.accent.Platform.H2;
 import org.jwcarman.accent.Platform.HSQLDB;
 import org.jwcarman.accent.Platform.MariaDB;
@@ -48,6 +51,14 @@ final class Detector {
   private static final String MARIADB_MARKER = "mariadb";
   private static final String COCKROACH_MARKER = "cockroachdb";
   private static final String YUGABYTE_MARKER = "-yb-";
+
+  // CASE_INSENSITIVE to match the case-insensitive marker detection in postgresFamily below —
+  // drivers do not guarantee casing, and a mismatch here would silently downgrade a genuine
+  // capability to false instead of failing loudly.
+  private static final Pattern COCKROACH_ENGINE_VERSION =
+      Pattern.compile("v(\\d+)\\.(\\d+)", Pattern.CASE_INSENSITIVE);
+  private static final Pattern YUGABYTE_ENGINE_VERSION =
+      Pattern.compile("-YB-(\\d+)\\.(\\d+)", Pattern.CASE_INSENSITIVE);
 
   private Detector() {}
 
@@ -120,17 +131,38 @@ final class Detector {
    * exists to prevent.
    */
   private static Platform postgresFamily(Fingerprint fingerprint, Version version) {
-    var query = normalise(fingerprint.versionQuery());
+    var rawQuery = fingerprint.versionQuery();
+    var query = normalise(rawQuery);
     if (query.isEmpty()) {
       return new Unknown(version);
     }
     if (query.contains(COCKROACH_MARKER)) {
-      return new CockroachDB(version);
+      return new CockroachDB(version, parseEngineVersion(rawQuery, COCKROACH_ENGINE_VERSION));
     }
     if (query.contains(YUGABYTE_MARKER)) {
-      return new YugabyteDB(version);
+      return new YugabyteDB(version, parseEngineVersion(rawQuery, YUGABYTE_ENGINE_VERSION));
     }
     return new PostgreSQL(version);
+  }
+
+  /**
+   * Parses an impostor's own version out of {@code SELECT version()}, since {@link Version} here
+   * describes the PostgreSQL release the impostor emulates rather than the engine itself.
+   *
+   * <p>An unparseable string yields major/minor of 0 rather than a guess — {@code
+   * supportsSkipLocked()} treats that as no evidence of capability and answers {@code false}.
+   *
+   * @param raw the full {@code SELECT version()} result
+   * @param pattern the marker-specific pattern capturing major and minor
+   * @return the parsed {@link EngineVersion}
+   */
+  private static EngineVersion parseEngineVersion(String raw, Pattern pattern) {
+    Matcher matcher = pattern.matcher(raw);
+    if (matcher.find()) {
+      return new EngineVersion(
+          raw, Integer.parseInt(matcher.group(1)), Integer.parseInt(matcher.group(2)));
+    }
+    return new EngineVersion(raw, 0, 0);
   }
 
   /**

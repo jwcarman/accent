@@ -22,6 +22,7 @@ import org.junit.jupiter.api.Test;
 import org.jwcarman.accent.Platform.CockroachDB;
 import org.jwcarman.accent.Platform.Db2;
 import org.jwcarman.accent.Platform.Derby;
+import org.jwcarman.accent.Platform.EngineVersion;
 import org.jwcarman.accent.Platform.H2;
 import org.jwcarman.accent.Platform.HSQLDB;
 import org.jwcarman.accent.Platform.MariaDB;
@@ -38,11 +39,15 @@ class PlatformTest {
 
   private static final Version VERSION = new Version("PostgreSQL", "17.10", 17, 10);
 
+  private static final EngineVersion COCKROACH_ENGINE = new EngineVersion("v24.1.32", 24, 1);
+  private static final EngineVersion YUGABYTE_ENGINE =
+      new EngineVersion("-YB-2024.1.0.0-b0", 2024, 1);
+
   private static List<Platform> allArms() {
     return List.of(
         new PostgreSQL(VERSION),
-        new CockroachDB(VERSION),
-        new YugabyteDB(VERSION),
+        new CockroachDB(VERSION, COCKROACH_ENGINE),
+        new YugabyteDB(VERSION, YUGABYTE_ENGINE),
         new MySQL(VERSION),
         new MariaDB(VERSION),
         new SqlServer(VERSION),
@@ -77,8 +82,8 @@ class PlatformTest {
     assertThat(new PostgreSQL(VERSION).supportsSkipLocked()).isTrue();
     assertThat(new MySQL(VERSION).supportsSkipLocked()).isTrue();
     assertThat(new MariaDB(VERSION).supportsSkipLocked()).isTrue();
-    assertThat(new CockroachDB(VERSION).supportsSkipLocked()).isTrue();
-    assertThat(new YugabyteDB(VERSION).supportsSkipLocked()).isTrue();
+    assertThat(new CockroachDB(VERSION, COCKROACH_ENGINE).supportsSkipLocked()).isTrue();
+    assertThat(new YugabyteDB(VERSION, YUGABYTE_ENGINE).supportsSkipLocked()).isTrue();
     assertThat(new H2(VERSION).supportsSkipLocked()).isTrue();
     assertThat(new Oracle(VERSION).supportsSkipLocked()).isTrue();
 
@@ -163,6 +168,68 @@ class PlatformTest {
     var boundary = new Version("Oracle", "11.0.0.0.0", 11, 0);
 
     assertThat(new Oracle(boundary).supportsSkipLocked()).isTrue();
+  }
+
+  @Test
+  void cockroachBelowTwentyTwoDotTwoDoesNotClaimSkipLocked() {
+    // v22.1.22 genuinely does not skip: ERROR: unimplemented: SKIP LOCKED lock wait policy is
+    // not supported.
+    var old = new EngineVersion("CockroachDB CCL v22.1.22 (...)", 22, 1);
+
+    assertThat(new CockroachDB(VERSION, old).supportsSkipLocked()).isFalse();
+  }
+
+  @Test
+  void cockroachAtTwentyTwoDotTwoClaimsSkipLocked() {
+    var boundary = new EngineVersion("CockroachDB CCL v22.2.19 (...)", 22, 2);
+
+    assertThat(new CockroachDB(VERSION, boundary).supportsSkipLocked()).isTrue();
+  }
+
+  @Test
+  void cockroachWithUnparseableEngineVersionDoesNotClaimSkipLocked() {
+    // Detection still succeeded — this is CockroachDB — but an unparseable version is no
+    // evidence of capability, and false is always the safe answer.
+    var unparseable = new EngineVersion("some future format accent has never seen", 0, 0);
+
+    assertThat(new CockroachDB(VERSION, unparseable).supportsSkipLocked()).isFalse();
+  }
+
+  @Test
+  void yugabyteBelowTwoDotSixteenDoesNotClaimSkipLocked() {
+    var old = new EngineVersion("PostgreSQL 11.2-YB-2.15.9.0-b0 on ...", 2, 15);
+
+    assertThat(new YugabyteDB(VERSION, old).supportsSkipLocked()).isFalse();
+  }
+
+  @Test
+  void yugabyteAtTwoDotSixteenClaimsSkipLocked() {
+    var boundary = new EngineVersion("PostgreSQL 11.2-YB-2.16.9.0-b0 on ...", 2, 16);
+
+    assertThat(new YugabyteDB(VERSION, boundary).supportsSkipLocked()).isTrue();
+  }
+
+  @Test
+  void yugabyteWithUnparseableEngineVersionDoesNotClaimSkipLocked() {
+    var unparseable = new EngineVersion("some future format accent has never seen", 0, 0);
+
+    assertThat(new YugabyteDB(VERSION, unparseable).supportsSkipLocked()).isFalse();
+  }
+
+  @Test
+  void h2BelowTwoPointTwoDoesNotClaimSkipLocked() {
+    // 2.1.214 genuinely does not skip: Syntax error in SQL statement "... FOR UPDATE SKIP[*]
+    // LOCKED".
+    var old = new Version("H2", "2.1.214", 2, 1);
+
+    assertThat(new H2(old).supportsSkipLocked()).isFalse();
+  }
+
+  @Test
+  void h2AtTwoPointTwoClaimsSkipLocked() {
+    var boundary = new Version("H2", "2.2.224", 2, 2);
+
+    assertThat(new H2(boundary).supportsSkipLocked()).isTrue();
   }
 
   @Test

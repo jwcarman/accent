@@ -79,8 +79,9 @@ public sealed interface Platform {
     /**
      * {@inheritDoc}
      *
-     * <p>{@code SKIP LOCKED} arrived in PostgreSQL 9.5. Verified by contention test against
-     * PostgreSQL 17.
+     * <p>{@code SKIP LOCKED} arrived in PostgreSQL 9.5. This floor is measured, not merely
+     * documented: contention testing against PostgreSQL 17 confirms it skips, and against 9.4.26
+     * confirms it does not — {@code syntax error at or near "SKIP"}.
      */
     @Override
     public boolean supportsSkipLocked() {
@@ -95,22 +96,37 @@ public sealed interface Platform {
    * <p>Through pgjdbc this engine is indistinguishable from PostgreSQL at the {@link
    * java.sql.DatabaseMetaData} level — it reports product name {@code PostgreSQL} and a bare
    * PostgreSQL version number. Its {@link #version()} therefore describes PostgreSQL, not
-   * CockroachDB. accent identifies it by querying {@code SELECT version()}.
+   * CockroachDB. accent identifies it by querying {@code SELECT version()}, and {@link #engine()}
+   * carries CockroachDB's own version parsed from that same query — the only place the real version
+   * appears.
+   *
+   * @param version what the driver reported, describing the PostgreSQL release CockroachDB
+   *     emulates, not CockroachDB itself
+   * @param engine CockroachDB's actual version, parsed from {@code SELECT version()}
    */
-  record CockroachDB(Version version) implements Platform {
+  record CockroachDB(Version version, EngineVersion engine) implements Platform {
+
+    private static final int SKIP_LOCKED_MAJOR = 22;
+    private static final int SKIP_LOCKED_MINOR = 2;
 
     /**
      * {@inheritDoc}
      *
-     * <p>Verified by contention test against CockroachDB 24.1: a second connection genuinely skips
-     * a row locked by a first rather than blocking. Unconditionally {@code true} rather than
-     * version-gated, because {@link #version()} here describes the PostgreSQL release CockroachDB
-     * emulates, not CockroachDB's own release number — there is no meaningful major or minor to
-     * gate on. No lower bound was tested; only 24.1 was measured.
+     * <p>This is a discovered boundary, not a guess: contention testing across a version series
+     * found v22.1.22 genuinely does not skip (it rejects {@code SKIP LOCKED} with {@code ERROR:
+     * unimplemented: SKIP LOCKED lock wait policy is not supported}), while v22.2.19, v23.1.30, and
+     * v24.1.32 all genuinely do. {@link #version()} cannot express this floor — CockroachDB reports
+     * {@code productVersion} = {@code 13.0.0} at every one of those releases — so this gates on
+     * {@link #engine()} instead, parsed from {@code SELECT version()}.
+     *
+     * <p>If {@link #engine()} could not be parsed, this returns {@code false}: detection still
+     * succeeded (this is CockroachDB), but an unparseable version is no evidence of capability, and
+     * {@code false} is always the safe answer.
      */
     @Override
     public boolean supportsSkipLocked() {
-      return true;
+      return engine.major() > SKIP_LOCKED_MAJOR
+          || (engine.major() == SKIP_LOCKED_MAJOR && engine.minor() >= SKIP_LOCKED_MINOR);
     }
   }
 
@@ -118,22 +134,40 @@ public sealed interface Platform {
    * YugabyteDB.
    *
    * <p>Reports product name {@code PostgreSQL}; its {@link #version()} describes the PostgreSQL
-   * release it emulates, not YugabyteDB's own numbering.
+   * release it emulates, not YugabyteDB's own numbering. {@link #engine()} carries YugabyteDB's own
+   * version, parsed from {@code SELECT version()}.
+   *
+   * @param version what the driver reported, describing the PostgreSQL release YugabyteDB emulates,
+   *     not YugabyteDB itself
+   * @param engine YugabyteDB's actual version, parsed from {@code SELECT version()}
    */
-  record YugabyteDB(Version version) implements Platform {
+  record YugabyteDB(Version version, EngineVersion engine) implements Platform {
+
+    private static final int SKIP_LOCKED_MAJOR = 2;
+    private static final int SKIP_LOCKED_MINOR = 16;
 
     /**
      * {@inheritDoc}
      *
-     * <p>Verified by contention test against YugabyteDB 2024.1: a second connection genuinely skips
-     * a row locked by a first rather than blocking. Unconditionally {@code true} rather than
-     * version-gated, because {@link #version()} here describes the PostgreSQL release YugabyteDB
-     * emulates, not YugabyteDB's own release number — there is no meaningful major or minor to gate
-     * on. No lower bound was tested; only 2024.1 was measured.
+     * <p><strong>2.16 is the lowest version measured, not a discovered boundary.</strong> 2.16.9,
+     * 2.18.9, 2.20.12, and 2024.1 all genuinely skip; 2.14.17 would not start on the test machine,
+     * so nothing below 2.16.9 was ever measured. Unlike the CockroachDB floor, this is not a
+     * confirmed line between "works" and "does not work" — it is simply the bottom of what was
+     * observed. Versions in the {@code 2024.1}-style scheme parse as major 2024, minor 1, which is
+     * correctly above this floor.
+     *
+     * <p>{@link #version()} cannot express any floor at all — YugabyteDB reports {@code
+     * productVersion} such as {@code 11.2-YB-2.16.9.0-b0}, a bare PostgreSQL compatibility number —
+     * so this gates on {@link #engine()} instead, parsed from {@code SELECT version()}.
+     *
+     * <p>If {@link #engine()} could not be parsed, this returns {@code false}: detection still
+     * succeeded (this is YugabyteDB), but an unparseable version is no evidence of capability, and
+     * {@code false} is always the safe answer.
      */
     @Override
     public boolean supportsSkipLocked() {
-      return true;
+      return engine.major() > SKIP_LOCKED_MAJOR
+          || (engine.major() == SKIP_LOCKED_MAJOR && engine.minor() >= SKIP_LOCKED_MINOR);
     }
   }
 
@@ -145,9 +179,11 @@ public sealed interface Platform {
     /**
      * {@inheritDoc}
      *
-     * <p>{@code SKIP LOCKED} arrived in MySQL 8.0. Verified by contention test against MySQL 8.4.
-     * The floor's minor version is 0, so a major-version comparison alone is sufficient — there is
-     * no minor version below 0 that a major-version match could wrongly exclude.
+     * <p>{@code SKIP LOCKED} arrived in MySQL 8.0. This floor is measured, not merely documented:
+     * contention testing against MySQL 8.4 confirms it skips, and against 5.7.44 confirms it does
+     * not — a SQL syntax error near {@code 'SKIP LOCKED'}. The floor's minor version is 0, so a
+     * major-version comparison alone is sufficient — there is no minor version below 0 that a
+     * major-version match could wrongly exclude.
      */
     @Override
     public boolean supportsSkipLocked() {
@@ -169,8 +205,9 @@ public sealed interface Platform {
     /**
      * {@inheritDoc}
      *
-     * <p>{@code SKIP LOCKED} arrived in MariaDB 10.6. Verified by contention test against MariaDB
-     * 11.4.
+     * <p>{@code SKIP LOCKED} arrived in MariaDB 10.6. This floor is measured, not merely
+     * documented: contention testing against MariaDB 11.4 confirms it skips, and against 10.5.29
+     * confirms it does not — a SQL syntax error near {@code 'SKIP'}.
      */
     @Override
     public boolean supportsSkipLocked() {
@@ -194,7 +231,16 @@ public sealed interface Platform {
    */
   record SqlServer(Version version) implements Platform {}
 
-  /** Oracle Database. Its product version spans two lines. */
+  /**
+   * Oracle Database.
+   *
+   * <p>Its product version may span two lines, and does on 18c and later — but not on 11g XE, which
+   * reports a single line ({@code Oracle Database 11g Express Edition Release 11.2.0.2.0 - 64bit
+   * Production}). A heuristic anchored with {@code $} or one that requires a newline breaks on one
+   * of those two shapes or the other. accent is unaffected because it uses the integer accessors
+   * ({@link #majorVersion()}/{@link #minorVersion()}), never string-parses {@link
+   * #productVersion()} — which is the point.
+   */
   record Oracle(Version version) implements Platform {
 
     private static final int SKIP_LOCKED_MAJOR = 11;
@@ -202,7 +248,14 @@ public sealed interface Platform {
     /**
      * {@inheritDoc}
      *
-     * <p>{@code SKIP LOCKED} arrived in Oracle 11. Verified by contention test against Oracle 23.
+     * <p><strong>11 is the lowest version measured, not a discovered boundary.</strong> 11.2.0.2,
+     * 18.4.0, 21.3.0, and 23.26 all genuinely skip by contention test; no Oracle 10g image is
+     * published, so nothing below 11.2.0.2 could ever be tested. That {@code SKIP LOCKED} arrived
+     * in Oracle 11 is Oracle's own documentation; what accent verified is that 11.2.0.2 skips.
+     *
+     * <p>Oracle 18c reports {@link #minorVersion()} ({@code getDatabaseMinorVersion()}) as {@code
+     * 0} despite being release 18.4 — harmless today because this floor is major-only, but it would
+     * silently break anyone who later adds a minor comparison here.
      */
     @Override
     public boolean supportsSkipLocked() {
@@ -231,18 +284,24 @@ public sealed interface Platform {
   /** H2. */
   record H2(Version version) implements Platform {
 
+    private static final int SKIP_LOCKED_MAJOR = 2;
+    private static final int SKIP_LOCKED_MINOR = 2;
+
     /**
      * {@inheritDoc}
      *
-     * <p>H2 parses {@code FOR UPDATE SKIP LOCKED}, which contradicted an earlier guess that it
-     * would not. Whether it genuinely skips was unknown until measured: a contention test against
-     * H2 2.3.232 confirms a second connection does skip a row locked by a first rather than
-     * blocking. Unconditionally {@code true} because no earlier H2 version was tested and no
-     * documented floor is known; only 2.3.232 was measured.
+     * <p>This is a discovered boundary, not a guess: contention testing across a classpath matrix
+     * (H2 is not containerisable, so each version's jar was run in turn against the same contention
+     * harness) found 1.4.200, 2.0.206, and 2.1.214 all genuinely reject the clause with a syntax
+     * error — {@code Syntax error in SQL statement "... FOR UPDATE SKIP[*] LOCKED"} — while 2.2.224
+     * and 2.3.232 both genuinely skip. H2 reports its own version honestly, so unlike CockroachDB
+     * or YugabyteDB this needs no separate {@code engine()} component; the floor gates directly on
+     * {@link #majorVersion()}/{@link #minorVersion()}.
      */
     @Override
     public boolean supportsSkipLocked() {
-      return true;
+      return majorVersion() > SKIP_LOCKED_MAJOR
+          || (majorVersion() == SKIP_LOCKED_MAJOR && minorVersion() >= SKIP_LOCKED_MINOR);
     }
   }
 
@@ -314,6 +373,33 @@ public sealed interface Platform {
     public Version {
       Objects.requireNonNull(productName, "productName");
       Objects.requireNonNull(productVersion, "productVersion");
+    }
+  }
+
+  /**
+   * An impostor engine's own version, parsed out of {@code SELECT version()} rather than out of
+   * {@link Version}.
+   *
+   * <p>{@link CockroachDB} and {@link YugabyteDB} report a {@link Version} describing the
+   * PostgreSQL release they emulate, not their own release — that is why this exists as a separate
+   * component rather than being folded into {@link Version}. {@code raw} holds the full {@code
+   * SELECT version()} string, which is independently useful: it is the only way a caller can learn
+   * the real CockroachDB or YugabyteDB version at all.
+   *
+   * <p>When the version could not be parsed out of {@code raw}, {@code major} and {@code minor} are
+   * both {@code 0} — never a guess, and never treated as evidence of any capability. A {@code
+   * supportsSkipLocked()} floor gated on an unparseable {@code EngineVersion} always answers {@code
+   * false}.
+   *
+   * @param raw the full, unparsed {@code SELECT version()} result
+   * @param major the engine's own major version, or 0 if it could not be parsed from {@code raw}
+   * @param minor the engine's own minor version, or 0 if it could not be parsed from {@code raw}
+   */
+  record EngineVersion(String raw, int major, int minor) {
+
+    /** Validates that the raw string is present. */
+    public EngineVersion {
+      Objects.requireNonNull(raw, "raw");
     }
   }
 }
