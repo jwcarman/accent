@@ -67,11 +67,11 @@ exhaustiveness at compile time is the entire value of this library — the
 compiler, not a runtime guess, forces every caller to decide what happens for
 a database accent hasn't been taught.
 
-It has a real cost: adding a permitted subtype later (say, `Db2` moving from
-0.1.0 to a future arm, or a new engine altogether) throws `MatchException` at
-runtime in **already-compiled** exhaustive switches — the compiler inserts an
-implicit throwing default when compiling against an older accent, and that
-default fires when the jar is upgraded without a recompile.
+It has a real cost: adding a permitted subtype later (say, a future `Redshift`
+arm — see below for why it isn't one of the thirteen yet) throws
+`MatchException` at runtime in **already-compiled** exhaustive switches — the
+compiler inserts an implicit throwing default when compiling against an older
+accent, and that default fires when the jar is upgraded without a recompile.
 
 **Include a `default` unless you pin the version.** If you switch
 exhaustively without one, treat every accent upgrade as a potential binary
@@ -168,10 +168,16 @@ mvn verify -Dexcluded.test.groups=
 adds Oracle and Db2, which are excluded from the default run because they are
 slow and licence-gated. Db2 publishes no `linux/arm64` manifest, so on Apple
 Silicon it runs only under amd64 emulation and is noticeably slow; CI runs it
-natively on `linux/amd64` runners, where it's fast and reliable. All heavyweight
-containers need Docker running locally.
+natively on `linux/amd64` runners, where it takes about 70 seconds (Oracle
+takes about 15). All heavyweight containers need Docker running locally. The
+full matrix — 56 unit tests and 23 integration tests, Oracle and Db2 included —
+runs green on every pull request; CI does not exclude any test group.
 
 ## Coordinates
+
+**Not yet released.** accent has not been published to Maven Central; there is
+no `0.1.0` artifact to resolve yet. Once the first release ships, the
+coordinates will be:
 
 ```xml
 <dependency>
@@ -181,9 +187,15 @@ containers need Docker running locally.
 </dependency>
 ```
 
+Until then, the current version in `pom.xml` is `0.1.0-SNAPSHOT`, on the
+`accent-0.1.0` branch, unpublished.
+
 ## Documentation
 
-**[Documentation](https://jwcarman.github.io/accent/)** · [`docs/observed-strings.md`](docs/observed-strings.md) · [`SPEC.md`](SPEC.md) · [`CHANGELOG.md`](CHANGELOG.md)
+The [documentation site](https://jwcarman.github.io/accent/) publishes from
+this repository's `main` branch and is not live yet — this work has not
+merged there. Until it is, the same content lives in-repo:
+[`docs/index.md`](docs/index.md) · [`docs/observed-strings.md`](docs/observed-strings.md) · [`SPEC.md`](SPEC.md) · [`CHANGELOG.md`](CHANGELOG.md)
 
 ## License
 
