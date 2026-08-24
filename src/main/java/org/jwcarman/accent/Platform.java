@@ -197,13 +197,30 @@ public sealed interface Platform {
     }
   }
 
-  /** HSQLDB, which reports itself as {@code HSQL Database Engine}. */
+  /**
+   * HSQLDB, which reports itself as {@code HSQL Database Engine}.
+   *
+   * <p>{@link #supportsSkipLocked()} correctly inherits {@code false}. HSQLDB rejects the {@code
+   * SKIP LOCKED} clause outright ({@code unexpected token: SKIP}), confirmed by contention test
+   * against HSQLDB 2.7.
+   */
   record HSQLDB(Version version) implements Platform {}
 
-  /** SQLite. */
+  /**
+   * SQLite.
+   *
+   * <p>{@link #supportsSkipLocked()} correctly inherits {@code false}. SQLite has no row-level
+   * locking model at all — even plain {@code FOR UPDATE} is a syntax error — confirmed by
+   * contention test against SQLite 3.47.
+   */
   record SQLite(Version version) implements Platform {}
 
-  /** Apache Derby. */
+  /**
+   * Apache Derby.
+   *
+   * <p>{@link #supportsSkipLocked()} correctly inherits {@code false}. Derby rejects the {@code
+   * SKIP LOCKED} clause outright, confirmed by contention test against Derby 10.17.
+   */
   record Derby(Version version) implements Platform {}
 
   /**

@@ -228,7 +228,7 @@ class SkipLockedContentionIT {
   }
 
   @Test
-  void hsqldbContentionResult() throws SQLException {
+  void hsqldbDoesNotSkipLockedRowsAndSaysSo() throws SQLException {
     var url = "jdbc:hsqldb:mem:accent_skiplocked_hsqldb";
     try (var first = Drivers.connect(new org.hsqldb.jdbc.JDBCDriver(), url, "SA", "");
         var second = Drivers.connect(new org.hsqldb.jdbc.JDBCDriver(), url, "SA", "")) {
@@ -236,7 +236,8 @@ class SkipLockedContentionIT {
       var skips = SkipLockedContention.skipsLockedRows(first, second);
       var platform = Accent.of(second);
 
-      System.out.println("MEASURED hsqldb skips=" + skips);
+      // HSQLDB rejects the SKIP LOCKED clause outright.
+      assertThat(skips).isFalse();
       assertThat(platform.supportsSkipLocked())
           .as("the arm must report what contention actually proved")
           .isEqualTo(skips);
