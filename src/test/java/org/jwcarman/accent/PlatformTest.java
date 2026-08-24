@@ -55,14 +55,17 @@ class PlatformTest {
 
   @Test
   void onlyArmsProvenByContentionClaimSkipLocked() {
-    // VERSION is a PostgreSQL 17 reading, so PostgreSQL, MySQL, MariaDB, CockroachDB, YugabyteDB
-    // and H2 all answer true here.
+    // VERSION is a PostgreSQL 17 reading (major 17), so PostgreSQL, MySQL, MariaDB, CockroachDB,
+    // YugabyteDB, H2 and Oracle (whose floor is major 11) all answer true here. Db2 and SQL
+    // Server stay false despite accepting or resembling the syntax: contention proved neither
+    // genuinely skips.
     assertThat(new PostgreSQL(VERSION).supportsSkipLocked()).isTrue();
     assertThat(new MySQL(VERSION).supportsSkipLocked()).isTrue();
     assertThat(new MariaDB(VERSION).supportsSkipLocked()).isTrue();
     assertThat(new CockroachDB(VERSION).supportsSkipLocked()).isTrue();
     assertThat(new YugabyteDB(VERSION).supportsSkipLocked()).isTrue();
     assertThat(new H2(VERSION).supportsSkipLocked()).isTrue();
+    assertThat(new Oracle(VERSION).supportsSkipLocked()).isTrue();
 
     assertThat(allArms())
         .filteredOn(
@@ -72,7 +75,8 @@ class PlatformTest {
                     && !(platform instanceof MariaDB)
                     && !(platform instanceof CockroachDB)
                     && !(platform instanceof YugabyteDB)
-                    && !(platform instanceof H2))
+                    && !(platform instanceof H2)
+                    && !(platform instanceof Oracle))
         .allSatisfy(platform -> assertThat(platform.supportsSkipLocked()).isFalse());
   }
 
@@ -116,6 +120,20 @@ class PlatformTest {
     var boundary = new Version("MySQL", "10.6.0-MariaDB", 10, 6);
 
     assertThat(new MariaDB(boundary).supportsSkipLocked()).isTrue();
+  }
+
+  @Test
+  void oracleBelowElevenDoesNotClaimSkipLocked() {
+    var old = new Version("Oracle", "10.2.0.5.0", 10, 2);
+
+    assertThat(new Oracle(old).supportsSkipLocked()).isFalse();
+  }
+
+  @Test
+  void oracleAtElevenClaimsSkipLocked() {
+    var boundary = new Version("Oracle", "11.0.0.0.0", 11, 0);
+
+    assertThat(new Oracle(boundary).supportsSkipLocked()).isTrue();
   }
 
   @Test

@@ -174,9 +174,30 @@ public sealed interface Platform {
   record SqlServer(Version version) implements Platform {}
 
   /** Oracle Database. Its product version spans two lines. */
-  record Oracle(Version version) implements Platform {}
+  record Oracle(Version version) implements Platform {
 
-  /** IBM Db2. Its product name carries a platform suffix, such as {@code DB2/LINUXX8664}. */
+    private static final int SKIP_LOCKED_MAJOR = 11;
+
+    /**
+     * {@inheritDoc}
+     *
+     * <p>{@code SKIP LOCKED} arrived in Oracle 11. Verified by contention test against Oracle 23.
+     */
+    @Override
+    public boolean supportsSkipLocked() {
+      return majorVersion() >= SKIP_LOCKED_MAJOR;
+    }
+  }
+
+  /**
+   * IBM Db2. Its product name carries a platform suffix, such as {@code DB2/LINUXX8664}.
+   *
+   * <p>{@link #supportsSkipLocked()} correctly inherits {@code false}. Db2 12.1 parses {@code FOR
+   * UPDATE SKIP LOCKED} without error, but a contention test shows the second connection blocks
+   * on the row the first holds rather than skipping it — parsing without genuine skip-locked
+   * semantics, exactly the trap this predicate exists to catch. Do not "fix" this arm to {@code
+   * true} on the strength of the syntax being accepted.
+   */
   record Db2(Version version) implements Platform {}
 
   /** H2. */
