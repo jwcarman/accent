@@ -193,10 +193,17 @@ public sealed interface Platform {
    * IBM Db2. Its product name carries a platform suffix, such as {@code DB2/LINUXX8664}.
    *
    * <p>{@link #supportsSkipLocked()} correctly inherits {@code false}. Db2 12.1 parses {@code FOR
-   * UPDATE SKIP LOCKED} without error, but a contention test shows the second connection blocks
-   * on the row the first holds rather than skipping it — parsing without genuine skip-locked
-   * semantics, exactly the trap this predicate exists to catch. Do not "fix" this arm to {@code
-   * true} on the strength of the syntax being accepted.
+   * UPDATE SKIP LOCKED} without error, but a contention test shows it does not block — it
+   * ignores the clause and returns both rows, including the one the first connection still holds
+   * locked in an open transaction:
+   *
+   * <pre>{@code did not skip: returned [1, 2] — clause accepted and ignored}</pre>
+   *
+   * <p>This is a worse trap than blocking would be: a caller doing outbox claiming against Db2 on
+   * the strength of the syntax being accepted would hand out the same row to two workers at once,
+   * silently, under concurrency — exactly the failure mode this predicate exists to prevent. Do
+   * not "fix" this arm to {@code true} on the strength of the syntax being accepted; that syntax
+   * being accepted is precisely what makes this arm dangerous to get wrong.
    */
   record Db2(Version version) implements Platform {}
 

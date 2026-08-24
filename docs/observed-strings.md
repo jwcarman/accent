@@ -296,7 +296,7 @@ as "does not skip."
 | YugabyteDB | 2024.1 | accepted | **skips** | `true` (unconditional — see below) |
 | H2 | 2.3.232 | accepted | **skips** | `true` (unconditional — see below) |
 | Oracle | 23 | accepted | **skips** | `true` (floor: 11) |
-| Db2 | 12.1 | accepted | **does not skip — blocks** | `false` |
+| Db2 | 12.1 | accepted | **does not skip — accepts and ignores the clause** | `false` |
 | SQL Server | 2022 | rejects `FOR UPDATE`/`FOR UPDATE SKIP LOCKED` outright (uses `WITH (UPDLOCK, READPAST)` instead) | does not skip | `false` |
 | HSQLDB | 2.7 | rejected | does not skip | `false` |
 | SQLite | 3.47 | rejected (no row-locking model; plain `FOR UPDATE` is itself a syntax error) | does not skip | `false` |
@@ -304,16 +304,31 @@ as "does not skip."
 
 ### Where contention disagrees with the parse-only result — the important finding
 
-**Db2 is the disagreement that matters.** The "SKIP LOCKED" table under "Heavy
-images" above records Db2 12.1 accepting `FOR UPDATE SKIP LOCKED` with no
-error, and that acceptance is real — the statement executes. But a two-
-connection contention test shows the second connection **blocks** on the row
-the first holds rather than skipping it. Db2 parses the clause and silently
-ignores its semantics. Nothing in the earlier parse-only table could have
-caught this; only holding a lock and watching a second connection's behaviour
-does. This is exactly the trap `SPEC.md` §4.3 and this file's own earlier
-"parsing is not semantics" warning predicted in the abstract — Db2 is where it
-turned out to be concretely true.
+**Db2 is the disagreement that matters, and it is the strongest argument in
+this document for why a parse check is insufficient.** The "SKIP LOCKED"
+table under "Heavy images" above records Db2 12.1 accepting `FOR UPDATE SKIP
+LOCKED` with no error, and that acceptance is real — the statement executes.
+The naive conclusion from "accepted" is "supports skip locked." A
+two-connection contention test shows the truth is different and more
+dangerous: the second connection does not block, and it does not error. It
+returns **both rows**, including the one the first connection still holds
+locked in an open transaction:
+
+```
+did not skip: returned [1, 2] — clause accepted and ignored
+```
+
+Db2 parses the clause and silently ignores its semantics — a parse check can
+never distinguish that outcome from genuine support, because both return
+"accepted" for the exact same reason: the statement is syntactically valid.
+Only holding a lock and watching a second connection's actual rows does. This
+is a worse trap than blocking would have been: a caller doing outbox claiming
+against Db2 on the strength of the syntax being accepted would hand the same
+row to two workers at once, silently, under concurrency — exactly the failure
+mode this predicate, and this library, exist to prevent. This is exactly the
+trap `SPEC.md` §4.3 and this file's own earlier "parsing is not semantics"
+warning predicted in the abstract — Db2 is where it turned out to be
+concretely true, and worse than the abstract warning implied.
 
 **CockroachDB and YugabyteDB confirm rather than contradict** the parse-only
 result, but that agreement was not guaranteed going in — `SPEC.md`'s original
