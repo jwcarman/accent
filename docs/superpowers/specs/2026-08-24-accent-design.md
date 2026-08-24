@@ -191,12 +191,24 @@ are in `docs/observed-strings.md`; the decisions they forced are here.
 `SPEC.md` §5 hypothesised that CockroachDB's version string contains
 `CockroachDB`. It does not. Through pgjdbc, CockroachDB reports
 `productName` = `PostgreSQL`, `productVersion` = `13.0.0`, major 13, minor 0 —
-nothing that separates it from a genuine PostgreSQL 13.0.0 server.
+nothing in the four identity fields separates it from a genuine PostgreSQL
+13.0.0 server.
 
-The only metadata-level tell is negative (real PostgreSQL carries a build
-suffix; CockroachDB reports a bare version), and no vendor guarantees a build
-suffix. Shipping that heuristic would put a coin flip inside a type sold on
-compile-time certainty.
+Other `DatabaseMetaData` methods *do* differ; measured against `postgres:13`,
+nine of 135 scalar methods carry an identity signal (`docs/observed-strings.md`,
+"How alike, exactly"). None is a usable seam:
+
+- Each is a hidden server round trip. pgjdbc implements `getSQLKeywords()`, the
+  `getMax*NameLength()` family and `getDefaultTransactionIsolation()` with
+  catalog queries, so `of(DatabaseMetaData)` was never query-free for this
+  family. An explicit query adds no I/O these avoid.
+- `getDefaultTransactionIsolation()` false-positives: `default_transaction_isolation`
+  is configurable, so a PostgreSQL server set to serializable reports the same
+  `8` CockroachDB does.
+- The `-2` name lengths mean "unknown", not "CockroachDB". Detection resting on
+  an engine declining to answer breaks the day it answers.
+- `getSQLKeywords()` content is the strongest tell but is a large result that
+  shifts between CockroachDB releases.
 
 `SELECT version()` resolves the whole family in one round trip. CockroachDB's
 result does not even begin with `PostgreSQL`.
