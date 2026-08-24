@@ -1,0 +1,86 @@
+/*
+ * Copyright © 2026 James Carman
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.jwcarman.accent.embedded;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.SQLException;
+import org.junit.jupiter.api.Test;
+import org.jwcarman.accent.Accent;
+import org.jwcarman.accent.Platform;
+
+/**
+ * Detection against real in-process engines. No Docker, so these live in the fast suite and are
+ * exhaustive rather than sampled.
+ *
+ * <p>These are the tests that catch the day an embedded driver changes what it reports.
+ */
+class EmbeddedEngineTest {
+
+  private static Platform detect(String url) throws SQLException {
+    try (Connection connection = DriverManager.getConnection(url)) {
+      return Accent.of(connection);
+    }
+  }
+
+  @Test
+  void detectsH2() throws SQLException {
+    var platform = detect("jdbc:h2:mem:accent_h2;DB_CLOSE_DELAY=-1");
+
+    assertThat(platform).isInstanceOf(Platform.H2.class);
+    assertThat(platform.productName()).isEqualTo("H2");
+  }
+
+  @Test
+  void detectsHsqldb() throws SQLException {
+    var platform = detect("jdbc:hsqldb:mem:accent_hsqldb");
+
+    assertThat(platform).isInstanceOf(Platform.HSQLDB.class);
+    assertThat(platform.productName()).isEqualTo("HSQL Database Engine");
+  }
+
+  @Test
+  void detectsSqlite() throws SQLException {
+    var platform = detect("jdbc:sqlite::memory:");
+
+    assertThat(platform).isInstanceOf(Platform.SQLite.class);
+    assertThat(platform.productName()).isEqualTo("SQLite");
+  }
+
+  @Test
+  void detectsDerby() throws SQLException {
+    var platform = detect("jdbc:derby:memory:accent_derby;create=true");
+
+    assertThat(platform).isInstanceOf(Platform.Derby.class);
+    assertThat(platform.productName()).isEqualTo("Apache Derby");
+  }
+
+  @Test
+  void noEmbeddedEngineIncursAVersionQuery() throws SQLException {
+    // None of these is in the PostgreSQL family, so none should pay for a round trip. Asserted
+    // indirectly: detection must succeed on every one of them, and SQLite's driver rejects
+    // SELECT version() outright, so a regression that queried it here would surface as an
+    // AccentException rather than a silently wrong Platform.
+    assertThat(detect("jdbc:h2:mem:accent_h2_novq;DB_CLOSE_DELAY=-1"))
+        .isInstanceOf(Platform.H2.class);
+    assertThat(detect("jdbc:hsqldb:mem:accent_hsqldb_novq")).isInstanceOf(Platform.HSQLDB.class);
+    assertThat(detect("jdbc:sqlite::memory:")).isInstanceOf(Platform.SQLite.class);
+    assertThat(detect("jdbc:derby:memory:accent_derby_novq;create=true"))
+        .isInstanceOf(Platform.Derby.class);
+  }
+}

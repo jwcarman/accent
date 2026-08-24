@@ -267,3 +267,93 @@ explicit.
 names the product outright. It is cheaper than `getSQLKeywords()`, stable across
 releases in a way a keyword list is not, and it identifies every member of the
 family rather than just one. That is why it is the seam.
+
+## SKIP LOCKED, by contention
+
+Every table above answered "does this statement execute" — a parse check. It is
+a weaker test than it looks: every current server in the matrix except HSQLDB,
+SQLite and Derby accepts `FOR UPDATE SKIP LOCKED` as syntax, including at least
+one engine that turns out not to honour it. The property a caller actually
+depends on is that a second transaction *skips* a row a first transaction has
+locked, rather than blocking on it. That takes two connections holding
+contention against each other, not one connection running a statement alone.
+
+The harness (`SkipLockedContention.skipsLockedRows`, exercised by
+`SkipLockedContentionIT` and `SkipLockedContentionHeavyIT`): connection one
+locks row 1 with plain `FOR UPDATE` and holds it in an open transaction;
+connection two runs `SELECT ... ORDER BY id FOR UPDATE SKIP LOCKED` against
+both rows with a 5-second query timeout. Genuine skip-locked semantics return
+row 2 only. Anything else — both rows (clause accepted and ignored), a timeout
+(blocked), or an exception (plain `FOR UPDATE` itself rejected) — is recorded
+as "does not skip."
+
+| Engine | Version tested | Accepted the syntax (parse-only, above) | Skips by contention | `supportsSkipLocked()` |
+|---|---|---|---|---|
+| PostgreSQL | 17 | accepted | **skips** | `true` (floor: 9.5) |
+| MySQL | 8.4 | accepted | **skips** | `true` (floor: 8.0) |
+| MariaDB | 11.4 | accepted | **skips** | `true` (floor: 10.6) |
+| CockroachDB | 24.1 | accepted | **skips** | `true` (unconditional — see below) |
+| YugabyteDB | 2024.1 | accepted | **skips** | `true` (unconditional — see below) |
+| H2 | 2.3.232 | accepted | **skips** | `true` (unconditional — see below) |
+| Oracle | 23 | accepted | **skips** | `true` (floor: 11) |
+| Db2 | 12.1 | accepted | **does not skip — accepts and ignores the clause** | `false` |
+| SQL Server | 2022 | rejects `FOR UPDATE`/`FOR UPDATE SKIP LOCKED` outright (uses `WITH (UPDLOCK, READPAST)` instead) | does not skip | `false` |
+| HSQLDB | 2.7 | rejected | does not skip | `false` |
+| SQLite | 3.47 | rejected (no row-locking model; plain `FOR UPDATE` is itself a syntax error) | does not skip | `false` |
+| Derby | 10.17 | rejected | does not skip | `false` |
+
+### Where contention disagrees with the parse-only result — the important finding
+
+**Db2 is the disagreement that matters, and it is the strongest argument in
+this document for why a parse check is insufficient.** The "SKIP LOCKED"
+table under "Heavy images" above records Db2 12.1 accepting `FOR UPDATE SKIP
+LOCKED` with no error, and that acceptance is real — the statement executes.
+The naive conclusion from "accepted" is "supports skip locked." A
+two-connection contention test shows the truth is different and more
+dangerous: the second connection does not block, and it does not error. It
+returns **both rows**, including the one the first connection still holds
+locked in an open transaction:
+
+```
+did not skip: returned [1, 2] — clause accepted and ignored
+```
+
+Db2 parses the clause and silently ignores its semantics — a parse check can
+never distinguish that outcome from genuine support, because both return
+"accepted" for the exact same reason: the statement is syntactically valid.
+Only holding a lock and watching a second connection's actual rows does. This
+is a worse trap than blocking would have been: a caller doing outbox claiming
+against Db2 on the strength of the syntax being accepted would hand the same
+row to two workers at once, silently, under concurrency — exactly the failure
+mode this predicate, and this library, exist to prevent. This is exactly the
+trap `SPEC.md` §4.3 and this file's own earlier "parsing is not semantics"
+warning predicted in the abstract — Db2 is where it turned out to be
+concretely true, and worse than the abstract warning implied.
+
+**CockroachDB and YugabyteDB confirm rather than contradict** the parse-only
+result, but that agreement was not guaranteed going in — `SPEC.md`'s original
+sketch (§1) guessed CockroachDB's semantics differ enough from PostgreSQL's
+that a caller should fall back to plain `FOR UPDATE` for it. Contention shows
+otherwise: both genuinely skip. Their `Platform` arms return `true`
+unconditionally rather than gated on a version floor, because for both engines
+`version()` reports the *PostgreSQL* release they emulate (13.0 and 11.2
+respectively — see the tables above), not their own release number, so there is
+no meaningful major/minor of the actual engine to gate on. Only the versions
+above were tested; no lower bound is claimed.
+
+**H2 also confirms rather than contradicts** the parse-only result recorded
+above (which itself already overturned `SPEC.md` §4.3's guess that H2 would
+reject the clause). Contention settles the remaining question the parse-only
+result left open: yes, H2 2.3.232 genuinely skips. Its arm is unconditionally
+`true` because no earlier H2 version was available to test and no documented
+floor is known.
+
+**SQL Server confirms the parse-only table's implicit answer.** It never
+appeared as "accepted" for `FOR UPDATE SKIP LOCKED` in the first place — its
+row above uses the different `WITH (UPDLOCK, READPAST)` syntax. Contention
+against the exact `FOR UPDATE SKIP LOCKED` clause fails immediately (plain
+`FOR UPDATE` outside a cursor is rejected: `FOR UPDATE clause allowed only for
+DECLARE CURSOR`), confirming `supportsSkipLocked()` must stay `false`. Do not
+"fix" this arm to `true` on the strength of `READPAST` — it is a different
+statement with different semantics, outside what this predicate promises to
+cover.
