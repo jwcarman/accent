@@ -1,6 +1,6 @@
 # accent — specification
 
-**Status:** implemented, not yet published. This document is the original
+**Status:** implemented and released (0.1.0). This document is the original
 seed spec, preserved as the record of what was assumed before anything was
 measured — several of its guesses were wrong. See
 `docs/superpowers/specs/2026-08-24-accent-design.md` for the decisions that

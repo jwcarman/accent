@@ -60,8 +60,7 @@ Zero runtime dependencies. Plain JDBC only.
 
 ## Installation
 
-accent is **not yet published to Maven Central.** The coordinates below are
-where it will resolve once a release ships:
+accent is published to Maven Central:
 
 ```xml
 <dependency>
@@ -71,8 +70,7 @@ where it will resolve once a release ships:
 </dependency>
 ```
 
-Until then, `pom.xml` on `main` carries `0.1.0-SNAPSHOT` and there is nothing
-to resolve from a public repository yet.
+accent has zero runtime dependencies — plain JDBC only.
 
 ## The compatibility cost
 

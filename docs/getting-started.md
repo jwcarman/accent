@@ -2,9 +2,7 @@
 
 ## Add the dependency
 
-accent is **not yet published to Maven Central** — `pom.xml` on `main` carries
-`0.1.0-SNAPSHOT`, and there is no `0.1.0` artifact to resolve today. Once a
-release ships, the coordinates will be:
+accent is published to Maven Central:
 
 ```xml
 <dependency>

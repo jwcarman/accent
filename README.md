@@ -82,9 +82,7 @@ isn't one of the thirteen arms.
 
 ## Coordinates
 
-**Not yet released.** accent has not been published to Maven Central; there is
-no `0.1.0` artifact to resolve yet. Once the first release ships, the
-coordinates will be:
+accent is published to Maven Central:
 
 ```xml
 <dependency>
@@ -94,7 +92,8 @@ coordinates will be:
 </dependency>
 ```
 
-Until then, the current version in `pom.xml` is `0.1.0-SNAPSHOT`.
+accent has zero runtime dependencies — plain JDBC only — so adding it pulls in
+nothing else.
 
 ## Documentation
 
