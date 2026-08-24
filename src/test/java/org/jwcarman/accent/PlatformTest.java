@@ -54,9 +54,27 @@ class PlatformTest {
   }
 
   @Test
-  void noArmClaimsSkipLockedUntilContentionProvesIt() {
-    // Task 13 flips these to true one at a time, each backed by a contention test.
-    assertThat(allArms()).allSatisfy(platform -> assertThat(platform.supportsSkipLocked()).isFalse());
+  void onlyArmsProvenByContentionClaimSkipLocked() {
+    // VERSION is a PostgreSQL 17 reading, so only the PostgreSQL arm answers true here.
+    assertThat(new PostgreSQL(VERSION).supportsSkipLocked()).isTrue();
+
+    assertThat(allArms())
+        .filteredOn(platform -> !(platform instanceof PostgreSQL))
+        .allSatisfy(platform -> assertThat(platform.supportsSkipLocked()).isFalse());
+  }
+
+  @Test
+  void postgresBelowNinePointFiveDoesNotClaimSkipLocked() {
+    var old = new Version("PostgreSQL", "9.4.26", 9, 4);
+
+    assertThat(new PostgreSQL(old).supportsSkipLocked()).isFalse();
+  }
+
+  @Test
+  void postgresAtNinePointFiveClaimsSkipLocked() {
+    var boundary = new Version("PostgreSQL", "9.5.25", 9, 5);
+
+    assertThat(new PostgreSQL(boundary).supportsSkipLocked()).isTrue();
   }
 
   @Test

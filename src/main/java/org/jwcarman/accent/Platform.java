@@ -50,7 +50,23 @@ public sealed interface Platform {
   }
 
   /** PostgreSQL proper, having ruled out the engines that impersonate it. */
-  record PostgreSQL(Version version) implements Platform {}
+  record PostgreSQL(Version version) implements Platform {
+
+    private static final int SKIP_LOCKED_MAJOR = 9;
+    private static final int SKIP_LOCKED_MINOR = 5;
+
+    /**
+     * {@inheritDoc}
+     *
+     * <p>{@code SKIP LOCKED} arrived in PostgreSQL 9.5. Verified by contention test against
+     * PostgreSQL 17.
+     */
+    @Override
+    public boolean supportsSkipLocked() {
+      return majorVersion() > SKIP_LOCKED_MAJOR
+          || (majorVersion() == SKIP_LOCKED_MAJOR && minorVersion() >= SKIP_LOCKED_MINOR);
+    }
+  }
 
   /**
    * CockroachDB.
