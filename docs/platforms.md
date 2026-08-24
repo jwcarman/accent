@@ -1,6 +1,6 @@
 # Platforms
 
-`Platform` is a sealed interface with thirteen arms plus `Unknown`. Detection
+`Platform` is a sealed interface with thirteen arms, one of them `Unknown`. Detection
 reads `DatabaseMetaData.getDatabaseProductName()` case-insensitively, then
 disambiguates by product version or (for the PostgreSQL family only) a
 `SELECT version()` round trip. Every string below is measured, not assumed —

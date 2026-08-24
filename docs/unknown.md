@@ -7,7 +7,7 @@ record Unknown(Version version) implements Platform {}
 ## Why it exists
 
 `Unknown` is the load-bearing idea in accent's design, not an afterthought.
-`Platform` is sealed with thirteen concrete arms plus `Unknown` — no
+`Platform` is sealed with twelve concrete engine arms plus `Unknown` as the thirteenth — no
 third-party extension point, so a `switch` over `Platform` is exhaustive
 *without* a `default` clause. That's only possible because there's a
 permanent arm to fall into for a database accent hasn't been taught.
@@ -73,6 +73,6 @@ The fallback is never consulted when detection succeeds; it only runs for the
 This turns "detection failed, dead end" into "detection failed, here's how to
 tell accent the answer" — API rather than an exception message the caller has
 to work around. If accent recognizes the gap as common and verifiable, it may
-become a thirteenth-plus-one arm later (see
+become a new, fourteenth arm later (see
 [Contributing](contributing.md)); until then, the fallback is how a caller
 closes it locally without waiting on a release.

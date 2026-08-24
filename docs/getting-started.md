@@ -43,7 +43,7 @@ directly. No other family pays for that round trip. See
 
 ## Read the result
 
-`Platform` is a sealed interface with thirteen arms plus `Unknown`. Most
+`Platform` is a sealed interface with thirteen arms, one of them `Unknown`. Most
 callers never need to look past one predicate:
 
 ```java
