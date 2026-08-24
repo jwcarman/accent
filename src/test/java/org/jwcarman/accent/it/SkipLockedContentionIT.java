@@ -152,7 +152,7 @@ class SkipLockedContentionIT {
           .withPassword("yugabyte");
 
   @Test
-  void yugabyteContentionResult() throws SQLException {
+  void yugabyteSkipsLockedRowsAndSaysSo() throws SQLException {
     var url =
         "jdbc:postgresql://"
             + YUGABYTE.getHost()
@@ -170,7 +170,7 @@ class SkipLockedContentionIT {
       var skips = SkipLockedContention.skipsLockedRows(first, second);
       var platform = Accent.of(second);
 
-      System.out.println("MEASURED yugabyte skips=" + skips);
+      assertThat(skips).isTrue();
       assertThat(platform.supportsSkipLocked())
           .as("the arm must report what contention actually proved")
           .isEqualTo(skips);

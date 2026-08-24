@@ -99,7 +99,22 @@ public sealed interface Platform {
    * <p>Reports product name {@code PostgreSQL}; its {@link #version()} describes the PostgreSQL
    * release it emulates, not YugabyteDB's own numbering.
    */
-  record YugabyteDB(Version version) implements Platform {}
+  record YugabyteDB(Version version) implements Platform {
+
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Verified by contention test against YugabyteDB 2024.1: a second connection genuinely
+     * skips a row locked by a first rather than blocking. Unconditionally {@code true} rather
+     * than version-gated, because {@link #version()} here describes the PostgreSQL release
+     * YugabyteDB emulates, not YugabyteDB's own release number — there is no meaningful major or
+     * minor to gate on. No lower bound was tested; only 2024.1 was measured.
+     */
+    @Override
+    public boolean supportsSkipLocked() {
+      return true;
+    }
+  }
 
   /** MySQL proper, having ruled out MariaDB reached through a MySQL driver. */
   record MySQL(Version version) implements Platform {
