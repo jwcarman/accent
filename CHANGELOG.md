@@ -36,6 +36,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `getDatabaseMinorVersion()` as `0` despite being release 18.4, so a future
   minor-version comparison on this floor would silently misbehave. No
   behaviour change.
+
+- `CockroachDB#supportsSkipLocked()` and `YugabyteDB#supportsSkipLocked()` no
+  longer return `true` unconditionally.
   Contention testing across a version series found CockroachDB v22.1.22
   genuinely does not skip locked rows (`ERROR: unimplemented: SKIP LOCKED
   lock wait policy is not supported`), while v22.2.19 and above genuinely do.
