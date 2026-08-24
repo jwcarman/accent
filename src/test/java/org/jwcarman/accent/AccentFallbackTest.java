@@ -6,10 +6,10 @@ import static org.mockito.Mockito.when;
 
 import java.sql.DatabaseMetaData;
 import java.sql.SQLException;
+import org.junit.jupiter.api.Test;
 import org.jwcarman.accent.Platform.MySQL;
 import org.jwcarman.accent.Platform.PostgreSQL;
 import org.jwcarman.accent.Platform.Unknown;
-import org.junit.jupiter.api.Test;
 
 class AccentFallbackTest {
 

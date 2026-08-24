@@ -14,10 +14,10 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import javax.sql.DataSource;
+import org.junit.jupiter.api.Test;
 import org.jwcarman.accent.Platform.CockroachDB;
 import org.jwcarman.accent.Platform.MySQL;
 import org.jwcarman.accent.Platform.PostgreSQL;
-import org.junit.jupiter.api.Test;
 
 class AccentTest {
 
@@ -44,8 +44,7 @@ class AccentTest {
 
   @Test
   void identifiesAPlatformFromMetadata() throws SQLException {
-    var metaData =
-        metaData(ObservedStrings.MYSQL_NAME, ObservedStrings.MYSQL_VERSION, 8, 4, null);
+    var metaData = metaData(ObservedStrings.MYSQL_NAME, ObservedStrings.MYSQL_VERSION, 8, 4, null);
 
     var platform = Accent.of(metaData);
 

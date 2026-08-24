@@ -3,10 +3,10 @@ package org.jwcarman.accent.it;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.sql.SQLException;
-import org.jwcarman.accent.Accent;
-import org.jwcarman.accent.Platform;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.jwcarman.accent.Accent;
+import org.jwcarman.accent.Platform;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.oracle.OracleContainer;
@@ -15,9 +15,9 @@ import org.testcontainers.utility.DockerImageName;
 /**
  * Oracle. Slow image, so tagged {@code heavy} and excluded from a default {@code mvn verify}.
  *
- * <p>Oracle's product version spans two lines and names a marketing release
- * ({@code Oracle AI Database 26ai}) that disagrees with its release number ({@code 23.26.2.0.0}).
- * Trust the integer accessors, not the prose.
+ * <p>Oracle's product version spans two lines and names a marketing release ({@code Oracle AI
+ * Database 26ai}) that disagrees with its release number ({@code 23.26.2.0.0}). Trust the integer
+ * accessors, not the prose.
  */
 @Tag("heavy")
 @Testcontainers

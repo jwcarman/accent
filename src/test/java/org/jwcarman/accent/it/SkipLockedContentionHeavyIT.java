@@ -3,9 +3,9 @@ package org.jwcarman.accent.it;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.sql.SQLException;
-import org.jwcarman.accent.Accent;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.jwcarman.accent.Accent;
 import org.testcontainers.containers.Db2Container;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -62,7 +62,10 @@ class SkipLockedContentionHeavyIT {
   void db2DoesNotSkipLockedRowsDespiteAcceptingTheSyntax() throws SQLException {
     try (var first =
             Drivers.connect(
-                new com.ibm.db2.jcc.DB2Driver(), DB2.getJdbcUrl(), DB2.getUsername(), DB2.getPassword());
+                new com.ibm.db2.jcc.DB2Driver(),
+                DB2.getJdbcUrl(),
+                DB2.getUsername(),
+                DB2.getPassword());
         var second =
             Drivers.connect(
                 new com.ibm.db2.jcc.DB2Driver(),

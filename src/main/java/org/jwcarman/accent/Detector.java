@@ -24,8 +24,9 @@ import org.jwcarman.accent.Platform.YugabyteDB;
  *
  * <p>Matching is case-insensitive throughout, and uses prefix or contains tests wherever that is
  * what the driver actually guarantees. Db2's product name carries a host-architecture suffix
- * ({@code DB2/LINUXX8664}, {@code DB2/NT64}), so only a prefix test is safe. Every string this class
- * matches against was observed against a running server; see {@code docs/observed-strings.md}.
+ * ({@code DB2/LINUXX8664}, {@code DB2/NT64}), so only a prefix test is safe. Every string this
+ * class matches against was observed against a running server; see {@code
+ * docs/observed-strings.md}.
  */
 final class Detector {
 
@@ -38,9 +39,9 @@ final class Detector {
   /**
    * Whether identifying this product requires querying the server beyond its metadata.
    *
-   * <p>True only for the PostgreSQL family. CockroachDB and YugabyteDB both report a product name of
-   * {@code PostgreSQL}, and CockroachDB's reported version is a bare PostgreSQL version number with
-   * no marker of its own, so metadata alone cannot separate the three.
+   * <p>True only for the PostgreSQL family. CockroachDB and YugabyteDB both report a product name
+   * of {@code PostgreSQL}, and CockroachDB's reported version is a bare PostgreSQL version number
+   * with no marker of its own, so metadata alone cannot separate the three.
    *
    * @param productName the reported database product name
    * @return true if {@link Fingerprint#versionQuery()} must be populated for accurate detection

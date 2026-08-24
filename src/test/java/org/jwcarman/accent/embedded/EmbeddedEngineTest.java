@@ -5,9 +5,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
+import org.junit.jupiter.api.Test;
 import org.jwcarman.accent.Accent;
 import org.jwcarman.accent.Platform;
-import org.junit.jupiter.api.Test;
 
 /**
  * Detection against real in-process engines. No Docker, so these live in the fast suite and are

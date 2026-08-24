@@ -23,8 +23,8 @@ import org.jwcarman.accent.Platform.Version;
  * }</pre>
  *
  * <p>Detection reads {@link DatabaseMetaData}. For the PostgreSQL family only, it also issues
- * {@code SELECT version()}, because CockroachDB and YugabyteDB both report a product name of
- * {@code PostgreSQL} and metadata cannot separate them. No other family incurs that round trip.
+ * {@code SELECT version()}, because CockroachDB and YugabyteDB both report a product name of {@code
+ * PostgreSQL} and metadata cannot separate them. No other family incurs that round trip.
  */
 public final class Accent {
 
@@ -72,7 +72,9 @@ public final class Accent {
     return builder().of(metaData);
   }
 
-  /** @return a builder for callers who need to supply a fallback */
+  /**
+   * @return a builder for callers who need to supply a fallback
+   */
   public static Builder builder() {
     return new Builder(null);
   }

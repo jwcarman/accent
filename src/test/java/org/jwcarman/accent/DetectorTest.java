@@ -2,6 +2,8 @@ package org.jwcarman.accent;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
 import org.jwcarman.accent.Platform.CockroachDB;
 import org.jwcarman.accent.Platform.Db2;
 import org.jwcarman.accent.Platform.Derby;
@@ -15,8 +17,6 @@ import org.jwcarman.accent.Platform.SQLite;
 import org.jwcarman.accent.Platform.SqlServer;
 import org.jwcarman.accent.Platform.Unknown;
 import org.jwcarman.accent.Platform.YugabyteDB;
-import org.junit.jupiter.api.Nested;
-import org.junit.jupiter.api.Test;
 
 class DetectorTest {
 
@@ -194,7 +194,8 @@ class DetectorTest {
     void refusesToGuessWhenTheQueryIsMissing() {
       // Without version() there is no way to rule out an impostor, and guessing "PostgreSQL"
       // is the precise bug accent exists to prevent. Unknown is the honest answer.
-      var fingerprint = queried(ObservedStrings.POSTGRES_NAME, ObservedStrings.POSTGRES_VERSION, null);
+      var fingerprint =
+          queried(ObservedStrings.POSTGRES_NAME, ObservedStrings.POSTGRES_VERSION, null);
 
       assertThat(Detector.detect(fingerprint)).isInstanceOf(Unknown.class);
     }

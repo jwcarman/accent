@@ -3,6 +3,7 @@ package org.jwcarman.accent;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.List;
+import org.junit.jupiter.api.Test;
 import org.jwcarman.accent.Platform.CockroachDB;
 import org.jwcarman.accent.Platform.Db2;
 import org.jwcarman.accent.Platform.Derby;
@@ -17,7 +18,6 @@ import org.jwcarman.accent.Platform.SqlServer;
 import org.jwcarman.accent.Platform.Unknown;
 import org.jwcarman.accent.Platform.Version;
 import org.jwcarman.accent.Platform.YugabyteDB;
-import org.junit.jupiter.api.Test;
 
 class PlatformTest {
 

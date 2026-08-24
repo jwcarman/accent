@@ -24,14 +24,13 @@ final class SkipLockedContention {
   /**
    * The result of one contention probe, with the reason attached.
    *
-   * <p>{@code detail} exists so a future run — against a new driver version, a new server
-   * version, or a different environment — leaves a record of *why* the answer came out the way it
-   * did, not just what the answer was. A bare boolean cannot distinguish "genuinely blocked
-   * waiting on the lock" from "the driver rejected the statement for an unrelated reason," and
-   * that distinction is exactly what makes a result like Db2's trustworthy or not.
+   * <p>{@code detail} exists so a future run — against a new driver version, a new server version,
+   * or a different environment — leaves a record of *why* the answer came out the way it did, not
+   * just what the answer was. A bare boolean cannot distinguish "genuinely blocked waiting on the
+   * lock" from "the driver rejected the statement for an unrelated reason," and that distinction is
+   * exactly what makes a result like Db2's trustworthy or not.
    *
-   * @param skips true if the second connection returned only the unlocked row rather than
-   *     blocking
+   * @param skips true if the second connection returned only the unlocked row rather than blocking
    * @param detail a short, human-readable account of what was actually observed
    */
   record Outcome(boolean skips, String detail) {}
@@ -92,7 +91,9 @@ final class SkipLockedContention {
     var message = e.getMessage();
     var detail = e.getClass().getSimpleName() + ": " + (message == null ? "(no message)" : message);
     detail = detail.replace('\n', ' ').replace('\r', ' ');
-    return detail.length() > MAX_DETAIL_LENGTH ? detail.substring(0, MAX_DETAIL_LENGTH) + "..." : detail;
+    return detail.length() > MAX_DETAIL_LENGTH
+        ? detail.substring(0, MAX_DETAIL_LENGTH) + "..."
+        : detail;
   }
 
   private static void prepare(Connection connection) throws SQLException {

@@ -3,9 +3,9 @@ package org.jwcarman.accent.it;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.sql.SQLException;
+import org.junit.jupiter.api.Test;
 import org.jwcarman.accent.Accent;
 import org.jwcarman.accent.Platform;
-import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.CockroachContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;

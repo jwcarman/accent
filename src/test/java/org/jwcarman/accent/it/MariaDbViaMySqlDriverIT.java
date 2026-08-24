@@ -3,9 +3,9 @@ package org.jwcarman.accent.it;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.sql.SQLException;
+import org.junit.jupiter.api.Test;
 import org.jwcarman.accent.Accent;
 import org.jwcarman.accent.Platform;
-import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.MariaDBContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -14,8 +14,8 @@ import org.testcontainers.utility.DockerImageName;
 /**
  * One MariaDB server, reached through both drivers.
  *
- * <p>Through {@code mariadb-java-client} it reports {@code MariaDB}; through
- * {@code mysql-connector-j} it reports {@code MySQL}. Same server, two identities, depending on a
+ * <p>Through {@code mariadb-java-client} it reports {@code MariaDB}; through {@code
+ * mysql-connector-j} it reports {@code MySQL}. Same server, two identities, depending on a
  * dependency choice made elsewhere. Both must resolve to {@link Platform.MariaDB}.
  */
 @Testcontainers

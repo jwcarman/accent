@@ -42,8 +42,7 @@ final class Drivers {
     }
     var connection = driver.connect(url, properties);
     if (connection == null) {
-      throw new SQLException(
-          "driver " + driver.getClass().getName() + " declined the URL " + url);
+      throw new SQLException("driver " + driver.getClass().getName() + " declined the URL " + url);
     }
     return connection;
   }

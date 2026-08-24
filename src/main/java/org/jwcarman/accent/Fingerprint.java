@@ -8,8 +8,8 @@ import org.jwcarman.accent.Platform.Version;
  *
  * <p>This is deliberately not {@link Version}: detection needs one reading that callers never see.
  * {@code versionQuery} holds the result of {@code SELECT version()} and is populated only for
- * families that cannot be identified from metadata alone. It is {@code null} for every other family,
- * which is the normal case and not an error.
+ * families that cannot be identified from metadata alone. It is {@code null} for every other
+ * family, which is the normal case and not an error.
  *
  * @param productName from {@link java.sql.DatabaseMetaData#getDatabaseProductName()}
  * @param productVersion from {@link java.sql.DatabaseMetaData#getDatabaseProductVersion()}
@@ -29,7 +29,9 @@ record Fingerprint(
     Objects.requireNonNull(productVersion, "productVersion");
   }
 
-  /** @return the public value type carried on every {@link Platform} arm */
+  /**
+   * @return the public value type carried on every {@link Platform} arm
+   */
   Version toVersion() {
     return new Version(productName, productVersion, majorVersion, minorVersion);
   }

@@ -3,8 +3,8 @@ package org.jwcarman.accent;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatNullPointerException;
 
-import org.jwcarman.accent.Platform.Version;
 import org.junit.jupiter.api.Test;
+import org.jwcarman.accent.Platform.Version;
 
 class VersionTest {
 

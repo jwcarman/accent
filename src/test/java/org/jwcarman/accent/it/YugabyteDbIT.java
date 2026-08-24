@@ -3,21 +3,21 @@ package org.jwcarman.accent.it;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.sql.SQLException;
+import org.junit.jupiter.api.Test;
 import org.jwcarman.accent.Accent;
 import org.jwcarman.accent.Platform;
-import org.junit.jupiter.api.Test;
+import org.testcontainers.containers.YugabyteDBYSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
-import org.testcontainers.containers.YugabyteDBYSQLContainer;
 
 /**
  * YugabyteDB reached through pgjdbc.
  *
  * <p>Note the deliberate URL construction. {@code YugabyteDBYSQLContainer#getJdbcUrl()} returns a
- * {@code jdbc:yugabytedb:} URL, and the YugabyteDB driver also claims {@code jdbc:postgresql:}
- * URLs — so this test builds the pgjdbc URL by hand and passes an explicit pgjdbc driver. Anything
- * less measures the wrong pairing.
+ * {@code jdbc:yugabytedb:} URL, and the YugabyteDB driver also claims {@code jdbc:postgresql:} URLs
+ * — so this test builds the pgjdbc URL by hand and passes an explicit pgjdbc driver. Anything less
+ * measures the wrong pairing.
  */
 @Testcontainers
 class YugabyteDbIT {

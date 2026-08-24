@@ -2,30 +2,36 @@ package org.jwcarman.accent;
 
 import java.util.Objects;
 
-/**
- * The database accent is talking to.
- */
+/** The database accent is talking to. */
 public sealed interface Platform {
 
   /** The version information the driver reported for this platform. */
   Version version();
 
-  /** @return the raw product name, exactly as the driver reported it */
+  /**
+   * @return the raw product name, exactly as the driver reported it
+   */
   default String productName() {
     return version().productName();
   }
 
-  /** @return the raw product version, exactly as the driver reported it */
+  /**
+   * @return the raw product version, exactly as the driver reported it
+   */
   default String productVersion() {
     return version().productVersion();
   }
 
-  /** @return the database major version the driver reported */
+  /**
+   * @return the database major version the driver reported
+   */
   default int majorVersion() {
     return version().majorVersion();
   }
 
-  /** @return the database minor version the driver reported */
+  /**
+   * @return the database minor version the driver reported
+   */
   default int minorVersion() {
     return version().minorVersion();
   }
@@ -35,13 +41,13 @@ public sealed interface Platform {
    * skip-locked semantics: a second transaction reading rows locked by a first must skip them
    * rather than block.
    *
-   * <p>This is deliberately narrow. It does not cover SQL Server's {@code WITH (UPDLOCK, READPAST)},
-   * which is a different statement with different semantics, and it is not the first member of a
-   * general capability bag.
+   * <p>This is deliberately narrow. It does not cover SQL Server's {@code WITH (UPDLOCK,
+   * READPAST)}, which is a different statement with different semantics, and it is not the first
+   * member of a general capability bag.
    *
-   * <p>A {@code false} answer is always safe: a caller falls back to plain {@code FOR UPDATE}, which
-   * blocks instead of skipping but is never incorrect. Every arm returning {@code true} is backed by
-   * a contention test in accent's integration suite.
+   * <p>A {@code false} answer is always safe: a caller falls back to plain {@code FOR UPDATE},
+   * which blocks instead of skipping but is never incorrect. Every arm returning {@code true} is
+   * backed by a contention test in accent's integration suite.
    *
    * @return true if concurrent claims skip locked rows
    */
@@ -81,11 +87,11 @@ public sealed interface Platform {
     /**
      * {@inheritDoc}
      *
-     * <p>Verified by contention test against CockroachDB 24.1: a second connection genuinely
-     * skips a row locked by a first rather than blocking. Unconditionally {@code true} rather
-     * than version-gated, because {@link #version()} here describes the PostgreSQL release
-     * CockroachDB emulates, not CockroachDB's own release number — there is no meaningful major
-     * or minor to gate on. No lower bound was tested; only 24.1 was measured.
+     * <p>Verified by contention test against CockroachDB 24.1: a second connection genuinely skips
+     * a row locked by a first rather than blocking. Unconditionally {@code true} rather than
+     * version-gated, because {@link #version()} here describes the PostgreSQL release CockroachDB
+     * emulates, not CockroachDB's own release number — there is no meaningful major or minor to
+     * gate on. No lower bound was tested; only 24.1 was measured.
      */
     @Override
     public boolean supportsSkipLocked() {
@@ -104,11 +110,11 @@ public sealed interface Platform {
     /**
      * {@inheritDoc}
      *
-     * <p>Verified by contention test against YugabyteDB 2024.1: a second connection genuinely
-     * skips a row locked by a first rather than blocking. Unconditionally {@code true} rather
-     * than version-gated, because {@link #version()} here describes the PostgreSQL release
-     * YugabyteDB emulates, not YugabyteDB's own release number — there is no meaningful major or
-     * minor to gate on. No lower bound was tested; only 2024.1 was measured.
+     * <p>Verified by contention test against YugabyteDB 2024.1: a second connection genuinely skips
+     * a row locked by a first rather than blocking. Unconditionally {@code true} rather than
+     * version-gated, because {@link #version()} here describes the PostgreSQL release YugabyteDB
+     * emulates, not YugabyteDB's own release number — there is no meaningful major or minor to gate
+     * on. No lower bound was tested; only 2024.1 was measured.
      */
     @Override
     public boolean supportsSkipLocked() {
@@ -161,15 +167,15 @@ public sealed interface Platform {
   /**
    * Microsoft SQL Server.
    *
-   * <p>{@link #supportsSkipLocked()} correctly inherits {@code false} here and must stay that
-   * way. SQL Server has no {@code FOR UPDATE SKIP LOCKED} clause; its nearest equivalent is
-   * {@code WITH (UPDLOCK, READPAST)}, a different statement with different semantics.
-   * {@code supportsSkipLocked()} is documented as covering the {@code FOR UPDATE SKIP LOCKED}
-   * clause specifically, and a contention test against SQL Server 2022 using that exact clause
-   * confirms it: plain {@code FOR UPDATE} itself is rejected outside a cursor declaration
-   * ("FOR UPDATE clause allowed only for DECLARE CURSOR"), so no skip is ever observed. Do not
-   * "fix" this arm to {@code true} on the strength of {@code READPAST} — that is a different
-   * capability this predicate does not cover.
+   * <p>{@link #supportsSkipLocked()} correctly inherits {@code false} here and must stay that way.
+   * SQL Server has no {@code FOR UPDATE SKIP LOCKED} clause; its nearest equivalent is {@code WITH
+   * (UPDLOCK, READPAST)}, a different statement with different semantics. {@code
+   * supportsSkipLocked()} is documented as covering the {@code FOR UPDATE SKIP LOCKED} clause
+   * specifically, and a contention test against SQL Server 2022 using that exact clause confirms
+   * it: plain {@code FOR UPDATE} itself is rejected outside a cursor declaration ("FOR UPDATE
+   * clause allowed only for DECLARE CURSOR"), so no skip is ever observed. Do not "fix" this arm to
+   * {@code true} on the strength of {@code READPAST} — that is a different capability this
+   * predicate does not cover.
    */
   record SqlServer(Version version) implements Platform {}
 
@@ -193,17 +199,17 @@ public sealed interface Platform {
    * IBM Db2. Its product name carries a platform suffix, such as {@code DB2/LINUXX8664}.
    *
    * <p>{@link #supportsSkipLocked()} correctly inherits {@code false}. Db2 12.1 parses {@code FOR
-   * UPDATE SKIP LOCKED} without error, but a contention test shows it does not block — it
-   * ignores the clause and returns both rows, including the one the first connection still holds
-   * locked in an open transaction:
+   * UPDATE SKIP LOCKED} without error, but a contention test shows it does not block — it ignores
+   * the clause and returns both rows, including the one the first connection still holds locked in
+   * an open transaction:
    *
    * <pre>{@code did not skip: returned [1, 2] — clause accepted and ignored}</pre>
    *
    * <p>This is a worse trap than blocking would be: a caller doing outbox claiming against Db2 on
    * the strength of the syntax being accepted would hand out the same row to two workers at once,
-   * silently, under concurrency — exactly the failure mode this predicate exists to prevent. Do
-   * not "fix" this arm to {@code true} on the strength of the syntax being accepted; that syntax
-   * being accepted is precisely what makes this arm dangerous to get wrong.
+   * silently, under concurrency — exactly the failure mode this predicate exists to prevent. Do not
+   * "fix" this arm to {@code true} on the strength of the syntax being accepted; that syntax being
+   * accepted is precisely what makes this arm dangerous to get wrong.
    */
   record Db2(Version version) implements Platform {}
 
