@@ -262,7 +262,7 @@ class SkipLockedContentionIT {
   }
 
   @Test
-  void derbyContentionResult() throws SQLException {
+  void derbyDoesNotSkipLockedRowsAndSaysSo() throws SQLException {
     var url = "jdbc:derby:memory:accent_skiplocked_derby;create=true";
     try (var first = Drivers.connect(new org.apache.derby.jdbc.EmbeddedDriver(), url, null, null);
         var second =
@@ -275,7 +275,8 @@ class SkipLockedContentionIT {
       var skips = SkipLockedContention.skipsLockedRows(first, second);
       var platform = Accent.of(second);
 
-      System.out.println("MEASURED derby skips=" + skips);
+      // Derby rejects the SKIP LOCKED clause outright.
+      assertThat(skips).isFalse();
       assertThat(platform.supportsSkipLocked())
           .as("the arm must report what contention actually proved")
           .isEqualTo(skips);
