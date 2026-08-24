@@ -37,18 +37,6 @@ final class SkipLockedContention {
   record Outcome(boolean skips, String detail) {}
 
   /**
-   * Locks one of two rows on {@code first}, then asks {@code second} to claim with skip-locked.
-   *
-   * @param first the connection that holds a lock
-   * @param second the connection that attempts to skip it
-   * @return true if the second connection returned only the unlocked row rather than blocking
-   * @throws SQLException if the fixture could not be created
-   */
-  static boolean skipsLockedRows(Connection first, Connection second) throws SQLException {
-    return probe(first, second).skips();
-  }
-
-  /**
    * Locks one of two rows on {@code first}, then asks {@code second} to claim with skip-locked,
    * recording what actually happened.
    *

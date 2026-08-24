@@ -74,8 +74,10 @@ class SkipLockedContentionHeavyIT {
       var platform = Accent.of(second);
       System.out.println("contention detail: " + outcome.detail());
 
-      // Db2 accepts the SKIP LOCKED syntax but blocks anyway — parsing without semantics, the
-      // exact trap this predicate exists to catch. See the javadoc on Platform.Db2.
+      // Db2 accepts the SKIP LOCKED syntax but ignores it — the second connection returns
+      // both rows, including the one the first still holds locked, instead of skipping it or
+      // blocking. Parsing without semantics: the exact trap this predicate exists to catch.
+      // See the javadoc on Platform.Db2.
       assertThat(outcome.skips()).as(outcome.detail()).isFalse();
       assertThat(platform.supportsSkipLocked())
           .as("the arm must report what contention actually proved: %s", outcome.detail())
