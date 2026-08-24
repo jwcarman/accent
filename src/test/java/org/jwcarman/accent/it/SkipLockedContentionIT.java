@@ -245,7 +245,7 @@ class SkipLockedContentionIT {
   }
 
   @Test
-  void sqliteContentionResult() throws SQLException {
+  void sqliteDoesNotSkipLockedRowsAndSaysSo() throws SQLException {
     var url = "jdbc:sqlite:file::memory:?cache=shared";
     try (var first = Drivers.connect(new org.sqlite.JDBC(), url, null, null);
         var second = Drivers.connect(new org.sqlite.JDBC(), url, null, null)) {
@@ -253,7 +253,8 @@ class SkipLockedContentionIT {
       var skips = SkipLockedContention.skipsLockedRows(first, second);
       var platform = Accent.of(second);
 
-      System.out.println("MEASURED sqlite skips=" + skips);
+      // SQLite has no row-level locking model; even plain FOR UPDATE is a syntax error.
+      assertThat(skips).isFalse();
       assertThat(platform.supportsSkipLocked())
           .as("the arm must report what contention actually proved")
           .isEqualTo(skips);
