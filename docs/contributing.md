@@ -99,6 +99,43 @@ full matrix — 61 unit tests and 23 integration tests as of this writing,
 Oracle and Db2 included — runs green on every pull request; CI does not
 exclude any test group.
 
+## Known gotchas with old Oracle images
+
+Standing up an old Oracle image (`gvenzl/oracle-xe:11.2.0.2-slim`, used by
+the at-floor test in `SkipLockedContentionFloorsIT`) hits two problems that
+do not occur against the current `gvenzl/oracle-free` image. Both cost real
+time to diagnose the first time; recorded here so nobody pays that cost
+twice.
+
+**`getJdbcUrl()` returns a URL that does not work.** The `oracle-xe`
+Testcontainers module's `OracleContainer#getJdbcUrl()` produces
+`jdbc:oracle:thin:@host:port/xepdb1` — a pluggable-database service name.
+11g predates pluggable databases entirely, so there is no `xepdb1`; the only
+addressable thing is the SID `xe`. Build the URL by hand instead, with a
+colon before the SID rather than a slash:
+`jdbc:oracle:thin:@host:port:xe`. Also use the `oracle-xe` module's
+`org.testcontainers.containers.OracleContainer`, not the `oracle-free`
+module's `org.testcontainers.oracle.OracleContainer` — the latter's
+PDB-shaped wait strategy assumes a pluggable database that 11g does not have.
+
+**`ORA-01882: timezone region not found`, usually wrapped as
+`ORA-00604: error occurred at recursive SQL level 1`.** The Oracle JDBC
+driver sends the JVM's default time zone to the server as a *region name* on
+connect. 11.2's bundled time zone data does not contain every region a
+modern JVM reports, so whether this fails depends on the machine's default
+time zone — it can pass on a contributor's laptop and fail on a CI runner
+with a different zone, which looks like flakiness but is not; re-running
+does not help. Neither `ORA-00604` nor `ORA-01882` says anything that points
+at "time zone region," which is why this is worth writing down. The fix is
+the connection property `oracle.jdbc.timezoneAsRegion=false`, which tells
+the driver to send a GMT offset instead of a region name — every Oracle
+version understands an offset. Set it as a `Properties` entry on the one
+connection that needs it (see `Drivers.connect(..., Properties)` and its use
+in `SkipLockedContentionFloorsIT`), not as a system property or a default
+time zone for the whole build — either of those would silently change
+behaviour for every other test to work around a problem specific to one old
+image. 18c and later ship newer time zone data and are not affected.
+
 ## The maintenance loop
 
 Every heuristic accent has is pinned against strings actually observed from a

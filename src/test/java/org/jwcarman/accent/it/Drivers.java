@@ -44,7 +44,30 @@ final class Drivers {
    */
   static Connection connect(Driver driver, String url, String user, String password)
       throws SQLException {
+    return connect(driver, url, user, password, new Properties());
+  }
+
+  /**
+   * Opens a connection using the given driver, with additional driver-specific properties beyond
+   * user/password.
+   *
+   * <p>For a case like Oracle's {@code oracle.jdbc.timezoneAsRegion}, this keeps the workaround
+   * scoped to the one test that needs it, rather than a JVM system property or default that would
+   * silently change behaviour for every other test in the suite.
+   *
+   * @param driver the driver to use
+   * @param url the JDBC URL
+   * @param user the username
+   * @param password the password
+   * @param extraProperties additional connection properties, merged in alongside user/password
+   * @return an open connection
+   * @throws SQLException if the connection could not be opened
+   */
+  static Connection connect(
+      Driver driver, String url, String user, String password, Properties extraProperties)
+      throws SQLException {
     var properties = new Properties();
+    properties.putAll(extraProperties);
     // Properties.setProperty throws NullPointerException on a null value. Some Testcontainers
     // containers report a null or empty password (e.g. CockroachDB runs in insecure mode), so
     // each property is set only when its value is non-null rather than letting that surface as

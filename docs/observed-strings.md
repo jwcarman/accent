@@ -203,6 +203,15 @@ being release 18.4. Harmless today, since `Platform.Oracle`'s floor is
 major-only, but it would silently misbehave for anyone who later adds a
 minor-version comparison to that floor.
 
+One more environmental note, not a fact about Oracle itself: connecting to
+11.2.0.2 from a modern JVM fails with `ORA-01882: timezone region not
+found` (usually wrapped as `ORA-00604: error occurred at recursive SQL level
+1`) unless the connection sets `oracle.jdbc.timezoneAsRegion=false`. 11.2's
+bundled time zone data does not contain every region a modern JVM's default
+time zone reports; whether it reproduces depends on the connecting machine's
+time zone, not on anything measured here. See
+[Contributing](contributing.md#known-gotchas-with-old-oracle-images).
+
 Every row above genuinely skips by contention test — 11.2.0.2 is the lowest
 version measured, and no Oracle 10g image is published, so nothing below it
 could ever be tested. This is the same shape of evidence as YugabyteDB's

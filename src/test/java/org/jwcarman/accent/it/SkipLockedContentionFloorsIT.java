@@ -18,6 +18,7 @@ package org.jwcarman.accent.it;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.sql.SQLException;
+import java.util.Properties;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.jwcarman.accent.Accent;
@@ -202,18 +203,32 @@ class SkipLockedContentionFloorsIT {
             + ORACLE_11_2.getMappedPort(1521)
             + ":xe";
 
+    // ORA-01882 "timezone region not found": ojdbc sends the JVM's default time zone to the
+    // server as a region name, and 11.2's bundled time zone data does not contain every region a
+    // modern JVM knows. Whether this test passes depends on the JVM's default time zone matching
+    // 11.2's data — it happened to on the machine this floor was measured on, and did not on a
+    // GitHub Actions runner (ORA-00604 "error occurred at recursive SQL level 1" wrapping the same
+    // ORA-01882). oracle.jdbc.timezoneAsRegion=false tells the driver to send a GMT offset
+    // instead, which every Oracle version understands. Scoped to this one connection rather than
+    // a system property or a global default time zone for the build, so it does not change
+    // behaviour for any other test. See docs/contributing.md.
+    var timezoneWorkaround = new Properties();
+    timezoneWorkaround.setProperty("oracle.jdbc.timezoneAsRegion", "false");
+
     try (var first =
             Drivers.connect(
                 new oracle.jdbc.OracleDriver(),
                 url,
                 ORACLE_11_2.getUsername(),
-                ORACLE_11_2.getPassword());
+                ORACLE_11_2.getPassword(),
+                timezoneWorkaround);
         var second =
             Drivers.connect(
                 new oracle.jdbc.OracleDriver(),
                 url,
                 ORACLE_11_2.getUsername(),
-                ORACLE_11_2.getPassword())) {
+                ORACLE_11_2.getPassword(),
+                timezoneWorkaround)) {
 
       var outcome = SkipLockedContention.probe(first, second);
       var platform = Accent.of(second);
