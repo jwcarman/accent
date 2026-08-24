@@ -213,6 +213,16 @@
       <artifactId>oracle-free</artifactId>
       <scope>test</scope>
     </dependency>
+    <!--
+      Separate from oracle-free above: 11g XE predates pluggable databases, so it needs the
+      oracle-xe module's org.testcontainers.containers.OracleContainer, not oracle-free's
+      org.testcontainers.oracle.OracleContainer.
+    -->
+    <dependency>
+      <groupId>org.testcontainers</groupId>
+      <artifactId>oracle-xe</artifactId>
+      <scope>test</scope>
+    </dependency>
     <dependency>
       <groupId>org.testcontainers</groupId>
       <artifactId>db2</artifactId>
