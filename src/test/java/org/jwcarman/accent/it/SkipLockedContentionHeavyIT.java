@@ -43,13 +43,14 @@ class SkipLockedContentionHeavyIT {
                 ORACLE.getUsername(),
                 ORACLE.getPassword())) {
 
-      var skips = SkipLockedContention.skipsLockedRows(first, second);
+      var outcome = SkipLockedContention.probe(first, second);
       var platform = Accent.of(second);
+      System.out.println("contention detail: " + outcome.detail());
 
-      assertThat(skips).isTrue();
+      assertThat(outcome.skips()).as(outcome.detail()).isTrue();
       assertThat(platform.supportsSkipLocked())
-          .as("the arm must report what contention actually proved")
-          .isEqualTo(skips);
+          .as("the arm must report what contention actually proved: %s", outcome.detail())
+          .isEqualTo(outcome.skips());
     }
   }
 
@@ -69,15 +70,16 @@ class SkipLockedContentionHeavyIT {
                 DB2.getUsername(),
                 DB2.getPassword())) {
 
-      var skips = SkipLockedContention.skipsLockedRows(first, second);
+      var outcome = SkipLockedContention.probe(first, second);
       var platform = Accent.of(second);
+      System.out.println("contention detail: " + outcome.detail());
 
       // Db2 accepts the SKIP LOCKED syntax but blocks anyway — parsing without semantics, the
       // exact trap this predicate exists to catch. See the javadoc on Platform.Db2.
-      assertThat(skips).isFalse();
+      assertThat(outcome.skips()).as(outcome.detail()).isFalse();
       assertThat(platform.supportsSkipLocked())
-          .as("the arm must report what contention actually proved")
-          .isEqualTo(skips);
+          .as("the arm must report what contention actually proved: %s", outcome.detail())
+          .isEqualTo(outcome.skips());
     }
   }
 }

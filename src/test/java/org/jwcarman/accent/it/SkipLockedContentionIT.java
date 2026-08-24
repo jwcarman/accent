@@ -45,13 +45,14 @@ class SkipLockedContentionIT {
                 POSTGRES.getUsername(),
                 POSTGRES.getPassword())) {
 
-      var skips = SkipLockedContention.skipsLockedRows(first, second);
+      var outcome = SkipLockedContention.probe(first, second);
       var platform = Accent.of(second);
+      System.out.println("contention detail: " + outcome.detail());
 
-      assertThat(skips).isTrue();
+      assertThat(outcome.skips()).as(outcome.detail()).isTrue();
       assertThat(platform.supportsSkipLocked())
-          .as("the arm must report what contention actually proved")
-          .isEqualTo(skips);
+          .as("the arm must report what contention actually proved: %s", outcome.detail())
+          .isEqualTo(outcome.skips());
     }
   }
 
@@ -74,13 +75,14 @@ class SkipLockedContentionIT {
                 MYSQL.getUsername(),
                 MYSQL.getPassword())) {
 
-      var skips = SkipLockedContention.skipsLockedRows(first, second);
+      var outcome = SkipLockedContention.probe(first, second);
       var platform = Accent.of(second);
+      System.out.println("contention detail: " + outcome.detail());
 
-      assertThat(skips).isTrue();
+      assertThat(outcome.skips()).as(outcome.detail()).isTrue();
       assertThat(platform.supportsSkipLocked())
-          .as("the arm must report what contention actually proved")
-          .isEqualTo(skips);
+          .as("the arm must report what contention actually proved: %s", outcome.detail())
+          .isEqualTo(outcome.skips());
     }
   }
 
@@ -103,13 +105,14 @@ class SkipLockedContentionIT {
                 MARIADB.getUsername(),
                 MARIADB.getPassword())) {
 
-      var skips = SkipLockedContention.skipsLockedRows(first, second);
+      var outcome = SkipLockedContention.probe(first, second);
       var platform = Accent.of(second);
+      System.out.println("contention detail: " + outcome.detail());
 
-      assertThat(skips).isTrue();
+      assertThat(outcome.skips()).as(outcome.detail()).isTrue();
       assertThat(platform.supportsSkipLocked())
-          .as("the arm must report what contention actually proved")
-          .isEqualTo(skips);
+          .as("the arm must report what contention actually proved: %s", outcome.detail())
+          .isEqualTo(outcome.skips());
     }
   }
 
@@ -132,13 +135,14 @@ class SkipLockedContentionIT {
                 COCKROACH.getUsername(),
                 COCKROACH.getPassword())) {
 
-      var skips = SkipLockedContention.skipsLockedRows(first, second);
+      var outcome = SkipLockedContention.probe(first, second);
       var platform = Accent.of(second);
+      System.out.println("contention detail: " + outcome.detail());
 
-      assertThat(skips).isTrue();
+      assertThat(outcome.skips()).as(outcome.detail()).isTrue();
       assertThat(platform.supportsSkipLocked())
-          .as("the arm must report what contention actually proved")
-          .isEqualTo(skips);
+          .as("the arm must report what contention actually proved: %s", outcome.detail())
+          .isEqualTo(outcome.skips());
     }
   }
 
@@ -167,13 +171,14 @@ class SkipLockedContentionIT {
             Drivers.connect(
                 new org.postgresql.Driver(), url, YUGABYTE.getUsername(), YUGABYTE.getPassword())) {
 
-      var skips = SkipLockedContention.skipsLockedRows(first, second);
+      var outcome = SkipLockedContention.probe(first, second);
       var platform = Accent.of(second);
+      System.out.println("contention detail: " + outcome.detail());
 
-      assertThat(skips).isTrue();
+      assertThat(outcome.skips()).as(outcome.detail()).isTrue();
       assertThat(platform.supportsSkipLocked())
-          .as("the arm must report what contention actually proved")
-          .isEqualTo(skips);
+          .as("the arm must report what contention actually proved: %s", outcome.detail())
+          .isEqualTo(outcome.skips());
     }
   }
 
@@ -198,15 +203,16 @@ class SkipLockedContentionIT {
                 SQLSERVER.getUsername(),
                 SQLSERVER.getPassword())) {
 
-      var skips = SkipLockedContention.skipsLockedRows(first, second);
+      var outcome = SkipLockedContention.probe(first, second);
       var platform = Accent.of(second);
+      System.out.println("contention detail: " + outcome.detail());
 
       // SQL Server has no FOR UPDATE SKIP LOCKED clause. Plain FOR UPDATE is itself rejected
       // outside a cursor, so this must be false — see the javadoc on Platform.SqlServer.
-      assertThat(skips).isFalse();
+      assertThat(outcome.skips()).as(outcome.detail()).isFalse();
       assertThat(platform.supportsSkipLocked())
-          .as("the arm must report what contention actually proved")
-          .isEqualTo(skips);
+          .as("the arm must report what contention actually proved: %s", outcome.detail())
+          .isEqualTo(outcome.skips());
     }
   }
 
@@ -216,14 +222,15 @@ class SkipLockedContentionIT {
     try (var first = Drivers.connect(new org.h2.Driver(), url, null, null);
         var second = Drivers.connect(new org.h2.Driver(), url, null, null)) {
 
-      var skips = SkipLockedContention.skipsLockedRows(first, second);
+      var outcome = SkipLockedContention.probe(first, second);
       var platform = Accent.of(second);
+      System.out.println("contention detail: " + outcome.detail());
 
       // H2 parses the clause; this is the test that settles whether it genuinely skips.
-      assertThat(skips).isTrue();
+      assertThat(outcome.skips()).as(outcome.detail()).isTrue();
       assertThat(platform.supportsSkipLocked())
-          .as("the arm must report what contention actually proved")
-          .isEqualTo(skips);
+          .as("the arm must report what contention actually proved: %s", outcome.detail())
+          .isEqualTo(outcome.skips());
     }
   }
 
@@ -233,14 +240,15 @@ class SkipLockedContentionIT {
     try (var first = Drivers.connect(new org.hsqldb.jdbc.JDBCDriver(), url, "SA", "");
         var second = Drivers.connect(new org.hsqldb.jdbc.JDBCDriver(), url, "SA", "")) {
 
-      var skips = SkipLockedContention.skipsLockedRows(first, second);
+      var outcome = SkipLockedContention.probe(first, second);
       var platform = Accent.of(second);
+      System.out.println("contention detail: " + outcome.detail());
 
       // HSQLDB rejects the SKIP LOCKED clause outright.
-      assertThat(skips).isFalse();
+      assertThat(outcome.skips()).as(outcome.detail()).isFalse();
       assertThat(platform.supportsSkipLocked())
-          .as("the arm must report what contention actually proved")
-          .isEqualTo(skips);
+          .as("the arm must report what contention actually proved: %s", outcome.detail())
+          .isEqualTo(outcome.skips());
     }
   }
 
@@ -250,14 +258,15 @@ class SkipLockedContentionIT {
     try (var first = Drivers.connect(new org.sqlite.JDBC(), url, null, null);
         var second = Drivers.connect(new org.sqlite.JDBC(), url, null, null)) {
 
-      var skips = SkipLockedContention.skipsLockedRows(first, second);
+      var outcome = SkipLockedContention.probe(first, second);
       var platform = Accent.of(second);
+      System.out.println("contention detail: " + outcome.detail());
 
       // SQLite has no row-level locking model; even plain FOR UPDATE is a syntax error.
-      assertThat(skips).isFalse();
+      assertThat(outcome.skips()).as(outcome.detail()).isFalse();
       assertThat(platform.supportsSkipLocked())
-          .as("the arm must report what contention actually proved")
-          .isEqualTo(skips);
+          .as("the arm must report what contention actually proved: %s", outcome.detail())
+          .isEqualTo(outcome.skips());
     }
   }
 
@@ -272,14 +281,15 @@ class SkipLockedContentionIT {
                 null,
                 null)) {
 
-      var skips = SkipLockedContention.skipsLockedRows(first, second);
+      var outcome = SkipLockedContention.probe(first, second);
       var platform = Accent.of(second);
+      System.out.println("contention detail: " + outcome.detail());
 
       // Derby rejects the SKIP LOCKED clause outright.
-      assertThat(skips).isFalse();
+      assertThat(outcome.skips()).as(outcome.detail()).isFalse();
       assertThat(platform.supportsSkipLocked())
-          .as("the arm must report what contention actually proved")
-          .isEqualTo(skips);
+          .as("the arm must report what contention actually proved: %s", outcome.detail())
+          .isEqualTo(outcome.skips());
     }
   }
 }
