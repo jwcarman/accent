@@ -177,6 +177,40 @@ Note also that the marketing name (`Oracle AI Database 26ai`) and the release
 number (`23.26.2.0.0`) disagree. `getDatabaseMajorVersion()` reports 23. Trust
 the integer accessors, not the prose.
 
+### Oracle's product version does not always span two lines
+
+The class javadoc once claimed flatly that Oracle's product version "spans
+two lines." That is false for 11g. A version matrix across every obtainable
+Oracle image shows the newline is conditional on the release:
+
+| Oracle version (image) | `productVersion` | major.minor | Skips by contention |
+|---|---|---|---|
+| 11.2.0.2 (`gvenzl/oracle-xe:11.2.0.2-slim`) | **single line**: `Oracle Database 11g Express Edition Release 11.2.0.2.0 - 64bit Production` | 11.2 | **skips** |
+| 18.4.0 (`gvenzl/oracle-xe:18.4.0-slim`) | two lines | **18.0** | **skips** |
+| 21.3.0 (`gvenzl/oracle-xe:21.3.0-slim`) | two lines | 21.3 | **skips** |
+| 23.26.2 (`gvenzl/oracle-free:23-slim-faststart`) | two lines | 23.26 | **skips** |
+
+11g Express Edition reports its version on one line with no embedded newline
+at all. 18c and later report the two-line marketing-name-plus-release-number
+shape recorded above under "Heavy images." A heuristic that assumes one shape
+universally — an anchored-with-`$` check, or one that requires a newline —
+breaks on whichever shape it did not assume. accent is unaffected because it
+uses the integer accessors (`majorVersion()`/`minorVersion()`), never
+string-parses `productVersion`, which is the point of using them.
+
+Also note: **Oracle 18c reports `getDatabaseMinorVersion()` as `0`** despite
+being release 18.4. Harmless today, since `Platform.Oracle`'s floor is
+major-only, but it would silently misbehave for anyone who later adds a
+minor-version comparison to that floor.
+
+Every row above genuinely skips by contention test — 11.2.0.2 is the lowest
+version measured, and no Oracle 10g image is published, so nothing below it
+could ever be tested. This is the same shape of evidence as YugabyteDB's
+floor, not CockroachDB's or H2's: the floor is bounded by measurement, not a
+discovered boundary. accent's `OracleIT` and
+`SkipLockedContentionFloorsIT#oracle11Point2SkipsLockedRowsAndSaysSo` exercise
+the top and bottom of this table, respectively.
+
 ### Db2's product version is not a version number
 
 `SQL120100` is a build identifier, not a dotted version. Nothing can be parsed
@@ -292,10 +326,10 @@ as "does not skip."
 | PostgreSQL | 17 | accepted | **skips** | `true` (floor: 9.5) |
 | MySQL | 8.4 | accepted | **skips** | `true` (floor: 8.0) |
 | MariaDB | 11.4 | accepted | **skips** | `true` (floor: 10.6) |
-| CockroachDB | 24.1 | accepted | **skips** | `true` (unconditional — see below) |
-| YugabyteDB | 2024.1 | accepted | **skips** | `true` (unconditional — see below) |
-| H2 | 2.3.232 | accepted | **skips** | `true` (unconditional — see below) |
-| Oracle | 23 | accepted | **skips** | `true` (floor: 11) |
+| CockroachDB | 24.1 | accepted | **skips** | `true` (floor: 22.2 of its own version — see below) |
+| YugabyteDB | 2024.1 | accepted | **skips** | `true` (floor: 2.16 of its own version — see below) |
+| H2 | 2.3.232 | accepted | **skips** | `true` (floor: 2.2 — see below) |
+| Oracle | 23.26 | accepted | **skips** | `true` (floor: 11 — lowest version measured, see below) |
 | Db2 | 12.1 | accepted | **does not skip — accepts and ignores the clause** | `false` |
 | SQL Server | 2022 | rejects `FOR UPDATE`/`FOR UPDATE SKIP LOCKED` outright (uses `WITH (UPDLOCK, READPAST)` instead) | does not skip | `false` |
 | HSQLDB | 2.7 | rejected | does not skip | `false` |
@@ -334,19 +368,22 @@ concretely true, and worse than the abstract warning implied.
 result, but that agreement was not guaranteed going in — `SPEC.md`'s original
 sketch (§1) guessed CockroachDB's semantics differ enough from PostgreSQL's
 that a caller should fall back to plain `FOR UPDATE` for it. Contention shows
-otherwise: both genuinely skip. Their `Platform` arms return `true`
-unconditionally rather than gated on a version floor, because for both engines
-`version()` reports the *PostgreSQL* release they emulate (13.0 and 11.2
-respectively — see the tables above), not their own release number, so there is
-no meaningful major/minor of the actual engine to gate on. Only the versions
-above were tested; no lower bound is claimed.
+otherwise: both genuinely skip. Their `Platform` arms gate `supportsSkipLocked()`
+on a version floor of their own engine's version, not the impersonated
+`version()` PostgreSQL reports (13.0 and 11.2 respectively — see the tables
+above), because there is no meaningful major/minor of the real engine in
+`version()` to gate on. CockroachDB's floor (22.2) is a discovered boundary;
+YugabyteDB's (2.16) is only the lowest version measured. See "SKIP LOCKED,
+below the floor" below for both.
 
 **H2 also confirms rather than contradicts** the parse-only result recorded
 above (which itself already overturned `SPEC.md` §4.3's guess that H2 would
 reject the clause). Contention settles the remaining question the parse-only
-result left open: yes, H2 2.3.232 genuinely skips. Its arm is unconditionally
-`true` because no earlier H2 version was available to test and no documented
-floor is known.
+result left open: yes, H2 2.3.232 genuinely skips — but so do all versions
+back to 2.2.224, and 2.1.214 and earlier genuinely do not. H2's arm gates on
+a floor of 2.2, a discovered boundary found by running a classpath matrix of
+five H2 versions rather than a container series. See "H2's floor is also a
+discovered boundary" below.
 
 **SQL Server confirms the parse-only table's implicit answer.** It never
 appeared as "accepted" for `FOR UPDATE SKIP LOCKED` in the first place — its
@@ -407,6 +444,30 @@ CockroachDB CCL v24.1.32 (aarch64-unknown-linux-gnu, built 2026/07/22 12:34:17, 
 when major > 22, or major == 22 and minor >= 2. `engine().raw()` is also the
 only way a caller can learn CockroachDB's real version at all, since
 `version()` never will.
+
+### H2's floor is also a discovered boundary — found on a classpath matrix, not a container series
+
+H2 is not containerisable, so it cannot be measured the way the four rows
+above were: there is no way to run two different H2 *versions* against each
+other or side by side in separate containers. Instead, each version's jar was
+put on the test classpath in turn and run against the same contention
+harness, one version at a time:
+
+| H2 version | Accepted the syntax | Skips by contention | `supportsSkipLocked()` |
+|---|---|---|---|
+| 1.4.200 | rejected | **does not skip** — `Syntax error in SQL statement "... FOR UPDATE SKIP[*] LOCKED"` | `false` |
+| 2.0.206 | rejected | **does not skip** — same syntax error | `false` |
+| 2.1.214 | rejected | **does not skip** — same syntax error | `false` |
+| 2.2.224 | accepted | skips | `true` (floor: 2.2) |
+| 2.3.232 | accepted | skips | `true` (floor: 2.2) |
+
+The floor is **2.2**, not 2.3: 2.2.224 genuinely skips, so rounding the floor
+up to 2.3 would wrongly deny the capability to every H2 2.2.x release. H2
+reports its own version honestly through `DatabaseMetaData` (see the
+"Embedded engines" table at the top of this file), so
+`H2#supportsSkipLocked()` gates directly on `majorVersion()`/
+`minorVersion()` — true when major > 2, or major == 2 and minor >= 2 — with
+no `EngineVersion` component needed, unlike CockroachDB or YugabyteDB.
 
 ### YugabyteDB has the same shape, but 2.16 is a measured floor, not a discovered one
 

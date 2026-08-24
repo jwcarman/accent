@@ -104,11 +104,23 @@ SQL Server 2022.
 ### Oracle
 
 Reports `productName` starting with `Oracle` (prefix match). Its
-`productVersion` spans two lines — `Oracle AI Database 26ai Free Release
-23.26.2.0.0 - Develop, Learn, and Run for Free\nVersion 23.26.2.0.0` — and the
-marketing name and the release number disagree (26ai vs. 23.26). Use
-`majorVersion()` / `minorVersion()` (23 / 26), not string parsing of
-`productVersion`.
+`productVersion` *may* span two lines, and does on 18c and later —
+`gvenzl/oracle-free:23-slim-faststart` reports `Oracle AI Database 26ai Free
+Release 23.26.2.0.0 - Develop, Learn, and Run for Free\nVersion 23.26.2.0.0`,
+where the marketing name and the release number disagree (26ai vs. 23.26). But
+11g XE reports a single line: `Oracle Database 11g Express Edition Release
+11.2.0.2.0 - 64bit Production`. A heuristic anchored with `$` or one that
+requires a newline breaks on one of those two shapes or the other. Use
+`majorVersion()` / `minorVersion()`, not string parsing of `productVersion` —
+accent is unaffected by either shape for exactly this reason.
+
+`supportsSkipLocked()`'s floor (major 11) is the lowest version measured, not
+a discovered boundary: 11.2.0.2, 18.4.0, 21.3.0, and 23.26 all genuinely skip
+by contention test, and no Oracle 10g image is published, so nothing below
+11.2.0.2 could be tested. Note also that Oracle 18c reports
+`getDatabaseMinorVersion()` as `0` despite being release 18.4 — harmless
+today, since this floor is major-only, but worth knowing before adding a
+minor-version comparison to it. See [Capabilities](capabilities.md).
 
 ### Db2
 
@@ -123,6 +135,15 @@ numeric source.
 
 Reports `productName` = `H2` (exact match). Measured as `H2` / `2.3.232
 (2024-08-11)`.
+
+`supportsSkipLocked()`'s floor (2.2) is a discovered boundary: a classpath
+matrix across five H2 versions (H2 is not containerisable, so each version's
+jar was run in turn against the same contention harness) found 1.4.200,
+2.0.206, and 2.1.214 all genuinely reject `FOR UPDATE SKIP LOCKED`, while
+2.2.224 and 2.3.232 genuinely skip. H2 reports its own version honestly, so
+unlike `CockroachDB` or `YugabyteDB` this gates directly on
+`majorVersion()`/`minorVersion()` — no `engine()` component. See
+[Capabilities](capabilities.md).
 
 ### HSQLDB
 

@@ -63,8 +63,8 @@ The contention harness (`SkipLockedContention.skipsLockedRows`, exercised by
 | MariaDB | 11.4 | accepted | **skips** | `true` (floor: 10.6) |
 | CockroachDB | 24.1 | accepted | **skips** | `true` (floor: 22.2 of its own version) |
 | YugabyteDB | 2024.1 | accepted | **skips** | `true` (floor: 2.16 of its own version) |
-| H2 | 2.3.232 | accepted | **skips** | `true` (unconditional) |
-| Oracle | 23 | accepted | **skips** | `true` (floor: 11) |
+| H2 | 2.3.232 | accepted | **skips** | `true` (floor: 2.2) |
+| Oracle | 23.26 | accepted | **skips** | `true` (floor: 11) |
 | Db2 | 12.1 | accepted | **does not skip — accepted and ignored** | `false` |
 | SQL Server | 2022 | rejects `FOR UPDATE`/`FOR UPDATE SKIP LOCKED` outright | does not skip | `false` |
 | HSQLDB | 2.7 | rejected | does not skip | `false` |
@@ -77,7 +77,7 @@ rejection and skip-and-ignore messages.
 
 ## Version floors
 
-Six arms gate `true` on a measured floor, because `SKIP LOCKED` arrived in
+Seven arms gate `true` on a measured floor, because `SKIP LOCKED` arrived in
 each engine at a specific release:
 
 | Platform | Floor | Comparison |
@@ -86,20 +86,32 @@ each engine at a specific release:
 | `MySQL` | 8.0 | major only (minor floor is 0) |
 | `MariaDB` | 10.6 | major/minor |
 | `Oracle` | 11 | major only |
+| `H2` | 2.2 | major/minor |
 | `CockroachDB` | 22.2 (of its own version — see below) | major/minor of `engine()` |
 | `YugabyteDB` | 2.16 (of its own version — see below) | major/minor of `engine()` |
 
 Below its floor, an arm's `supportsSkipLocked()` returns `false` even though
 the syntax itself may parse on older releases too. For `PostgreSQL`, `MySQL`,
-`MariaDB`, and `Oracle` these floors are more than a documented arrival
+`MariaDB`, `Oracle`, and `H2` these floors are more than a documented arrival
 version of the clause: contention testing below each one now confirms the
 rejection directly — PostgreSQL 9.4.26, MySQL 5.7.44, and MariaDB 10.5.29 all
-fail with a SQL syntax error on `SKIP`/`SKIP LOCKED` (see [Observed
-Strings](observed-strings.md)).
+fail with a SQL syntax error on `SKIP`/`SKIP LOCKED`, and H2 1.4.200, 2.0.206,
+and 2.1.214 all fail with `Syntax error in SQL statement "... FOR UPDATE
+SKIP[*] LOCKED"` (see [Observed Strings](observed-strings.md)).
 
 `CockroachDB` and `YugabyteDB` are different in kind, not just measurement:
 their floors are not expressible from `version()` at all — see the next
 section.
+
+## How confident is each floor
+
+- **Discovered boundaries** — a genuine, measured line between "does not
+  skip" and "skips": `PostgreSQL` 9.5, `MySQL` 8.0, `MariaDB` 10.6,
+  `CockroachDB` 22.2, `H2` 2.2.
+- **Bounded by measurement, no boundary found** — every version tested at or
+  above the floor genuinely skips, but nothing below the floor was ever
+  reachable to test (no earlier image exists, or it would not start):
+  `Oracle` 11, `YugabyteDB` 2.16.
 
 ## CockroachDB and YugabyteDB: floors on `engine()`, not on `version()`
 
@@ -134,12 +146,24 @@ as major 2024, minor 1 — correctly above the floor) all genuinely skip.
 tested. Do not read `YugabyteDB`'s 2.16 the way `CockroachDB`'s 22.2 reads:
 one is a proven boundary, the other is simply where measurement stopped.
 
-## Why H2 is unconditional
+## H2's floor is a discovered boundary
 
-H2 is unconditional for a different reason than CockroachDB or YugabyteDB: no
-earlier H2 version was available to test and no documented floor is known. H2
-2.3.232 genuinely skips, contradicting an earlier guess (`SPEC.md` §4.3) that
-it would not.
+H2 is not containerisable, so it cannot be measured the way the container-based
+engines are. Instead, five H2 versions were run in turn on the same classpath
+against the same contention harness: 1.4.200, 2.0.206, and 2.1.214 all
+genuinely reject `FOR UPDATE SKIP LOCKED` with a syntax error, while 2.2.224
+and 2.3.232 genuinely skip. That is a real line between "does not skip" and
+"skips," located by measurement — the same shape of evidence as CockroachDB's
+floor, not YugabyteDB's or Oracle's. `H2#supportsSkipLocked()` gates on
+`majorVersion()`/`minorVersion()` directly: `true` when major > 2, or major
+== 2 and minor >= 2. Unlike CockroachDB or YugabyteDB, H2 reports its own
+version honestly through `DatabaseMetaData`, so no separate `engine()`
+component is needed.
+
+This also confirms an earlier guess (`SPEC.md` §4.3, that H2 would not support
+`SKIP LOCKED` at all) was wrong in both directions: the clause parses on every
+version tested, and current versions genuinely skip — just not versions below
+2.2.
 
 ## Why SqlServer and Db2 are `false` on purpose
 
