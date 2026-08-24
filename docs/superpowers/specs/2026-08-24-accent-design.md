@@ -178,3 +178,98 @@ Keep a Changelog, bare semver with no `v` prefix, pom version permanently
 ## 4. Non-goals
 
 Unchanged from `SPEC.md` §7.
+
+---
+
+## 5. Amendments after Phase 0 reconnaissance (2026-08-24)
+
+Recon ran. It refuted part of `SPEC.md` §5 and part of §2 above. Measurements
+are in `docs/observed-strings.md`; the decisions they forced are here.
+
+### 5.1 Detection requires a query, not only metadata
+
+`SPEC.md` §5 hypothesised that CockroachDB's version string contains
+`CockroachDB`. It does not. Through pgjdbc, CockroachDB reports
+`productName` = `PostgreSQL`, `productVersion` = `13.0.0`, major 13, minor 0 —
+nothing that separates it from a genuine PostgreSQL 13.0.0 server.
+
+The only metadata-level tell is negative (real PostgreSQL carries a build
+suffix; CockroachDB reports a bare version), and no vendor guarantees a build
+suffix. Shipping that heuristic would put a coin flip inside a type sold on
+compile-time certainty.
+
+`SELECT version()` resolves the whole family in one round trip. CockroachDB's
+result does not even begin with `PostgreSQL`.
+
+**Decision.** All three entry points from §4.1 survive. Detection issues
+`SELECT version()` **only when `productName` is `PostgreSQL`** — no other family
+needs it, and no other family pays for it. `of(DatabaseMetaData)` remains
+viable because JDBC guarantees `DatabaseMetaData.getConnection()`.
+
+The pure core widens from `Version` to a `Fingerprint`:
+
+```java
+record Fingerprint(String productName, String productVersion,
+                   int majorVersion, int minorVersion,
+                   String versionQuery) {}   // null unless the family needed it
+
+Platform detect(Fingerprint fingerprint)     // still pure, still 100%-coverable
+```
+
+`Version` is unchanged as the public value type on each arm (§1.1).
+`Fingerprint` is internal: detection input, never returned to callers.
+
+### 5.2 An explicit override is a first-class path
+
+Prior art from the Nessy session: their shipped-then-deleted `JdbcDialect`
+threw on an unrecognised product, and the throw had to name two escapes because
+callers sitting under someone else's `DataSource` hit strings no resolver
+anticipates — pgbouncer, Aurora, H2 in PostgreSQL-compatibility mode.
+
+**Decision.** 0.1.0 ships a caller-supplied fallback, consulted when detection
+would otherwise return `Unknown`. "Detection failed, here is how to tell me the
+answer" becomes API rather than an exception message. `Unknown` remains the
+result when no fallback is supplied — the compile-time forcing function of
+§3.2 is unchanged.
+
+### 5.3 The capability test in §2.2 was too weak
+
+§2.2 said capability claims are executed rather than asserted. Correct in
+spirit, wrong in instrument. Every current server measured — including
+CockroachDB, YugabyteDB and H2, all three of which `SPEC.md` §4.3 guessed would
+not — **accepts** `FOR UPDATE SKIP LOCKED`. Parsing is not semantics. Executing
+the statement on one connection proves only that it is not a syntax error.
+
+**Decision.** The capability IT is a genuine contention test: two connections,
+one holding a row lock in an open transaction, the second asserting it skips
+that row rather than blocking. That is the property a caller doing outbox
+claiming actually depends on, and it is the only test that can tell
+`supportsSkipLocked()` the truth.
+
+Until that test runs, no arm's `supportsSkipLocked()` value is settled. The
+values are an output of Phase 4, not an input to Phase 1.
+
+### 5.4 Integration tests must pin the JDBC driver explicitly
+
+`com.yugabyte.Driver` also accepts `jdbc:postgresql:` URLs. With both jars on
+the classpath, `DriverManager` may route a pgjdbc URL to the YugabyteDB driver.
+The first Yugabyte measurement was silently taken through the wrong driver and
+had to be redone with an explicit `new org.postgresql.Driver()`.
+
+**Decision.** Integration tests construct the driver explicitly rather than
+going through `DriverManager`, or keep the YugabyteDB driver off the test
+classpath. A driver/server matrix that silently tests the wrong pairing is
+worse than no matrix — it reports confidence it has not earned.
+
+### 5.5 Scope note for the README
+
+Nessy's session drew a line worth adopting in accent's own docs. accent is for
+differences that are **spellings of the same operation** — `BYTEA` vs `BLOB` vs
+`VARBINARY`, upsert syntax, identifier quoting. It is not a licence to unify
+operations whose **semantics** differ: `FOR UPDATE SKIP LOCKED`, `READPAST`,
+and Oracle's skip-locked are not three spellings of one query, and code that
+treats them as such compiles everywhere and is subtly wrong on most of it.
+
+This is the honest framing of what `supportsSkipLocked()` is for: it answers
+whether one specific property holds, and it is deliberately not the first
+member of a general capability bag (§4.3).
