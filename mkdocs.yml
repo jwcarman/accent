@@ -62,6 +62,12 @@ markdown_extensions:
 
 nav:
   - Home: index.md
+  - Getting Started: getting-started.md
   - Reference:
+      - Platforms: platforms.md
+      - Capabilities: capabilities.md
+      - Unknown: unknown.md
+      - Design: design.md
       - Observed Strings: observed-strings.md
       - Changelog: https://github.com/jwcarman/accent/blob/main/CHANGELOG.md
+  - Contributing: contributing.md
