@@ -357,3 +357,77 @@ DECLARE CURSOR`), confirming `supportsSkipLocked()` must stay `false`. Do not
 "fix" this arm to `true` on the strength of `READPAST` — it is a different
 statement with different semantics, outside what this predicate promises to
 cover.
+
+## SKIP LOCKED, below the floor — the version-series contention table
+
+The tables above establish that current-version PostgreSQL, MySQL, MariaDB,
+and CockroachDB genuinely skip. They do not establish *where* skipping starts.
+A second contention run, across a version series for the four arms with a
+gated floor, does:
+
+| Engine | Version | Accepted the syntax | Skips by contention | `supportsSkipLocked()` |
+|---|---|---|---|---|
+| PostgreSQL | 9.4.26 | rejected | **does not skip** — `syntax error at or near "SKIP"` | `false` |
+| PostgreSQL | 9.5+ | accepted | skips | `true` (floor: 9.5) |
+| MySQL | 5.7.44 | rejected | **does not skip** — SQL syntax error near `'SKIP LOCKED'` | `false` |
+| MySQL | 8.0+ | accepted | skips | `true` (floor: 8.0) |
+| MariaDB | 10.5.29 | rejected | **does not skip** — SQL syntax error near `'SKIP'` | `false` |
+| MariaDB | 10.6+ | accepted | skips | `true` (floor: 10.6) |
+| CockroachDB | v22.1.22 | accepted | **does not skip** — `ERROR: unimplemented: SKIP LOCKED lock wait policy is not supported` | `false` |
+| CockroachDB | v22.2.19 | accepted | skips | `true` |
+| CockroachDB | v23.1.30 | accepted | skips | `true` |
+| CockroachDB | v24.1.32 | accepted | skips | `true` |
+
+Every below-floor row above is exercised by
+`SkipLockedContentionFloorsIT` (tagged `floors`, excluded from a default `mvn
+verify`; run with `-Dexcluded.test.groups=`).
+
+### CockroachDB's floor is a discovered boundary — and inexpressible from `Version`
+
+PostgreSQL, MySQL, and MariaDB's floors were already known arrival versions;
+the below-floor row above just confirms them by contention rather than by
+documentation. CockroachDB's floor is different: it was *found*, not looked
+up, and it cannot be expressed from `Platform.Version` at all. CockroachDB
+reports `productVersion` = `13.0.0` at v22.1.22, v22.2.19, v23.1.30, *and*
+v24.1.32 — the same bare PostgreSQL compatibility number at every one of
+those releases. There is no major or minor in `Version` that separates a
+version that skips from one that doesn't.
+
+The only place CockroachDB's own version appears is the `SELECT version()`
+string detection already fetches and, before this table existed, discarded:
+
+```
+CockroachDB CCL v22.1.22 (x86_64-pc-linux-gnu, built 2023/08/14 14:43:28, go1.17.11)
+CockroachDB CCL v24.1.32 (aarch64-unknown-linux-gnu, built 2026/07/22 12:34:17, go1.22.12 X:nocoverageredesign)
+```
+
+`Platform.CockroachDB` now carries a second component, `engine`, an
+`EngineVersion` parsed from that string (`v(\d+)\.(\d+)`) — `raw`, `major`,
+`minor`. `supportsSkipLocked()` gates on `engine`, not on `version()`: true
+when major > 22, or major == 22 and minor >= 2. `engine().raw()` is also the
+only way a caller can learn CockroachDB's real version at all, since
+`version()` never will.
+
+### YugabyteDB has the same shape, but 2.16 is a measured floor, not a discovered one
+
+YugabyteDB reports the same kind of impersonated version —
+`11.2-YB-2.16.9.0-b0` — and gets the same `EngineVersion` treatment, parsed
+with `-YB-(\d+)\.(\d+)`. But do not read its floor the way CockroachDB's
+reads. 2.16.9, 2.18.9, 2.20.12, and 2024.1 (parsing as major 2024, minor 1)
+all genuinely skip; 2.14.17 would not start on the test machine, so nothing
+below 2.16.9 was ever measured. **2.16 is the lowest version measured, not a
+confirmed line between "works" and "does not work."** `YugabyteDB` gates
+`supportsSkipLocked()` on the same major/minor comparison as CockroachDB
+(true when major > 2, or major == 2 and minor >= 16), but the javadoc on
+`Platform.YugabyteDB` is explicit that this is a floor of convenience, not a
+boundary anyone has proven.
+
+### An unparseable `EngineVersion` is not evidence of anything
+
+If `SELECT version()` ever returns a CockroachDB or YugabyteDB string this
+regex cannot parse, `EngineVersion` is still constructed — with `raw` holding
+the unparsed text and `major`/`minor` both `0` — rather than the whole of
+detection failing. Detection succeeded: the platform is known. But an
+unparseable version is no evidence of capability, so `supportsSkipLocked()`
+answers `false` in that case, the same safe default as every other
+below-floor reading.

@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- `CockroachDB#supportsSkipLocked()` no longer returns `true` unconditionally.
+  Contention testing across a version series found CockroachDB v22.1.22
+  genuinely does not skip locked rows (`ERROR: unimplemented: SKIP LOCKED
+  lock wait policy is not supported`), while v22.2.19 and above genuinely do.
+  `Platform.CockroachDB` and `Platform.YugabyteDB` now carry a second
+  component, `engine()` (an `EngineVersion` of `raw`/`major`/`minor`), parsed
+  from the `SELECT version()` string detection already fetches, because
+  `version()` cannot express this floor — CockroachDB reports `productVersion`
+  = `13.0.0` at every version in the series regardless of whether it skips.
+  `supportsSkipLocked()` now gates on `engine()`: `true` above CockroachDB
+  22.2 and YugabyteDB 2.16. YugabyteDB's floor is the lowest version measured,
+  not a discovered boundary like CockroachDB's — see
+  [`docs/capabilities.md`](docs/capabilities.md). An unparseable `engine()`
+  answers `false`, never a guess.
+
 ### Added
 
 - Initial release: `Accent.of(DataSource | Connection | DatabaseMetaData)`

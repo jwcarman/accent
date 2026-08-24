@@ -61,8 +61,8 @@ The contention harness (`SkipLockedContention.skipsLockedRows`, exercised by
 | PostgreSQL | 17 | accepted | **skips** | `true` (floor: 9.5) |
 | MySQL | 8.4 | accepted | **skips** | `true` (floor: 8.0) |
 | MariaDB | 11.4 | accepted | **skips** | `true` (floor: 10.6) |
-| CockroachDB | 24.1 | accepted | **skips** | `true` (unconditional) |
-| YugabyteDB | 2024.1 | accepted | **skips** | `true` (unconditional) |
+| CockroachDB | 24.1 | accepted | **skips** | `true` (floor: 22.2 of its own version) |
+| YugabyteDB | 2024.1 | accepted | **skips** | `true` (floor: 2.16 of its own version) |
 | H2 | 2.3.232 | accepted | **skips** | `true` (unconditional) |
 | Oracle | 23 | accepted | **skips** | `true` (floor: 11) |
 | Db2 | 12.1 | accepted | **does not skip — accepted and ignored** | `false` |
@@ -77,7 +77,7 @@ rejection and skip-and-ignore messages.
 
 ## Version floors
 
-Four arms gate `true` on a measured floor, because `SKIP LOCKED` arrived in
+Six arms gate `true` on a measured floor, because `SKIP LOCKED` arrived in
 each engine at a specific release:
 
 | Platform | Floor | Comparison |
@@ -86,24 +86,60 @@ each engine at a specific release:
 | `MySQL` | 8.0 | major only (minor floor is 0) |
 | `MariaDB` | 10.6 | major/minor |
 | `Oracle` | 11 | major only |
+| `CockroachDB` | 22.2 (of its own version — see below) | major/minor of `engine()` |
+| `YugabyteDB` | 2.16 (of its own version — see below) | major/minor of `engine()` |
 
 Below its floor, an arm's `supportsSkipLocked()` returns `false` even though
-the syntax itself may parse on older releases too — the floors are the
-documented arrival version of the *clause*, not a re-verification that every
-version below it rejects the syntax.
+the syntax itself may parse on older releases too. For `PostgreSQL`, `MySQL`,
+`MariaDB`, and `Oracle` these floors are more than a documented arrival
+version of the clause: contention testing below each one now confirms the
+rejection directly — PostgreSQL 9.4.26, MySQL 5.7.44, and MariaDB 10.5.29 all
+fail with a SQL syntax error on `SKIP`/`SKIP LOCKED` (see [Observed
+Strings](observed-strings.md)).
 
-## Why CockroachDB, YugabyteDB, and H2 are unconditional
+`CockroachDB` and `YugabyteDB` are different in kind, not just measurement:
+their floors are not expressible from `version()` at all — see the next
+section.
+
+## CockroachDB and YugabyteDB: floors on `engine()`, not on `version()`
 
 `CockroachDB` and `YugabyteDB` report a `version()` describing the PostgreSQL
 release they emulate, not their own release number (see
-[Platforms](platforms.md)) — there is no meaningful major/minor of the actual
-engine to gate a floor on. Both were measured to genuinely skip at the one
-version tested (CockroachDB 24.1, YugabyteDB 2024.1), so their arms return
-`true` unconditionally; no lower bound is claimed.
+[Platforms](platforms.md)). CockroachDB reports `productVersion` = `13.0.0`
+at v22.1.22, v22.2.19, v23.1.30, *and* v24.1.32 alike — the same bare number
+whether or not `SKIP LOCKED` genuinely works. There is no major/minor in
+`version()` to gate a floor on.
 
-H2 is unconditional for a different reason: no earlier H2 version was
-available to test and no documented floor is known. H2 2.3.232 genuinely
-skips, contradicting an earlier guess (`SPEC.md` §4.3) that it would not.
+Both arms therefore carry a second component, `engine()`, an `EngineVersion`
+record (`raw`, `major`, `minor`) parsed out of the `SELECT version()` string
+detection already fetches: `v(\d+)\.(\d+)` for CockroachDB, `-YB-(\d+)\.(\d+)`
+for YugabyteDB. `raw` is independently useful — it is the only way a caller
+learns the real CockroachDB or YugabyteDB version at all, since `version()`
+never will. `supportsSkipLocked()` gates on `engine()`'s major/minor, the
+same comparison shape as `PostgreSQL` or `MariaDB`, just against a different
+source of truth. If `engine()` could not be parsed, `major`/`minor` are both
+`0` and `supportsSkipLocked()` answers `false` — an unparseable version is no
+evidence of capability, never a guess.
+
+**CockroachDB's floor (22.2) is a discovered boundary.** Contention testing
+across the version series found v22.1.22 genuinely rejects the clause
+(`ERROR: unimplemented: SKIP LOCKED lock wait policy is not supported`) while
+v22.2.19, v23.1.30, and v24.1.32 all genuinely skip. That is a real line
+between "works" and "does not work," located by measurement.
+
+**YugabyteDB's floor (2.16) is *not* a discovered boundary — it is the
+lowest version measured.** 2.16.9, 2.18.9, 2.20.12, and 2024.1 (which parses
+as major 2024, minor 1 — correctly above the floor) all genuinely skip.
+2.14.17 would not start on the test machine, so nothing below 2.16.9 was ever
+tested. Do not read `YugabyteDB`'s 2.16 the way `CockroachDB`'s 22.2 reads:
+one is a proven boundary, the other is simply where measurement stopped.
+
+## Why H2 is unconditional
+
+H2 is unconditional for a different reason than CockroachDB or YugabyteDB: no
+earlier H2 version was available to test and no documented floor is known. H2
+2.3.232 genuinely skips, contradicting an earlier guess (`SPEC.md` §4.3) that
+it would not.
 
 ## Why SqlServer and Db2 are `false` on purpose
 

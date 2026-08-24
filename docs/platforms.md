@@ -16,10 +16,19 @@ version. `platform.majorVersion()` on a `CockroachDB` instance is PostgreSQL's
 13, not CockroachDB's 24. Do not write comparisons like
 `cockroach.majorVersion() >= 24` — there is no `24` to compare against.
 
-This is why `CockroachDB#supportsSkipLocked()` and
-`YugabyteDB#supportsSkipLocked()` are unconditional `true` rather than
-version-gated: there is no meaningful major/minor of the actual engine to gate
-on (see [Capabilities](capabilities.md)).
+Both arms carry a second component for this reason: `engine()`, a
+`Platform.EngineVersion` (`raw`, `major`, `minor`) parsed out of the same
+`SELECT version()` string detection already fetches — `v(\d+)\.(\d+)` for
+CockroachDB, `-YB-(\d+)\.(\d+)` for YugabyteDB. `engine().raw()` is the only
+way a caller learns the real CockroachDB or YugabyteDB version, since
+`version()` never will. `CockroachDB#supportsSkipLocked()` and
+`YugabyteDB#supportsSkipLocked()` gate on `engine()`'s major/minor, not on
+`version()`'s: CockroachDB's floor (22.2) is a discovered boundary — v22.1.22
+genuinely rejects `SKIP LOCKED`, v22.2.19 and above genuinely skip — while
+YugabyteDB's floor (2.16) is only the lowest version measured, not a proven
+line. See [Capabilities](capabilities.md) for the full version-series
+evidence, and never deconstruct either record positionally on the assumption
+it still has one component.
 
 ## The thirteen arms
 
@@ -44,11 +53,28 @@ signals (`getSQLKeywords()`, `getMax*NameLength()`,
 keyword list that shifts between releases — see
 [Design](design.md#why-select-version).
 
+The same `SELECT version()` string also carries CockroachDB's own version,
+which `engine()` parses out with `v(\d+)\.(\d+)` — `v24.1.32` becomes major
+24, minor 1. `supportsSkipLocked()` gates on this, not on `version()`: `true`
+when `engine().major() > 22`, or major `== 22` and `engine().minor() >= 2`.
+This floor is a discovered boundary — contention testing found v22.1.22
+genuinely rejects `SKIP LOCKED` (`ERROR: unimplemented: SKIP LOCKED lock wait
+policy is not supported`) while v22.2.19 and above genuinely skip. See
+[Capabilities](capabilities.md).
+
 ### YugabyteDB
 
 Also reports `productName` = `PostgreSQL`. Distinguished by a `-yb-` marker
 (case-insensitive) inside the `SELECT version()` result, e.g.
 `PostgreSQL 11.2-YB-2024.1.0.0-b0 on ...`.
+
+`engine()` parses YugabyteDB's own version out of that same string with
+`-YB-(\d+)\.(\d+)` — `-YB-2.16.9.0-b0` becomes major 2, minor 16;
+`-YB-2024.1.0.0-b0` becomes major 2024, minor 1. `supportsSkipLocked()` gates
+on `engine()`, `true` when `major() > 2` or major `== 2` and `minor() >= 16`.
+Unlike CockroachDB's floor, 2.16 is **not** a discovered boundary — it is the
+lowest version that was measured (2.14.17 would not start on the test
+machine). See [Capabilities](capabilities.md).
 
 ### MySQL
 
