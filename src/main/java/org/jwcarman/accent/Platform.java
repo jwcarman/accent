@@ -231,7 +231,16 @@ public sealed interface Platform {
    */
   record SqlServer(Version version) implements Platform {}
 
-  /** Oracle Database. Its product version spans two lines. */
+  /**
+   * Oracle Database.
+   *
+   * <p>Its product version may span two lines, and does on 18c and later — but not on 11g XE, which
+   * reports a single line ({@code Oracle Database 11g Express Edition Release 11.2.0.2.0 - 64bit
+   * Production}). A heuristic anchored with {@code $} or one that requires a newline breaks on one
+   * of those two shapes or the other. accent is unaffected because it uses the integer accessors
+   * ({@link #majorVersion()}/{@link #minorVersion()}), never string-parses {@link
+   * #productVersion()} — which is the point.
+   */
   record Oracle(Version version) implements Platform {
 
     private static final int SKIP_LOCKED_MAJOR = 11;
@@ -239,7 +248,14 @@ public sealed interface Platform {
     /**
      * {@inheritDoc}
      *
-     * <p>{@code SKIP LOCKED} arrived in Oracle 11. Verified by contention test against Oracle 23.
+     * <p><strong>11 is the lowest version measured, not a discovered boundary.</strong> 11.2.0.2,
+     * 18.4.0, 21.3.0, and 23.26 all genuinely skip by contention test; no Oracle 10g image is
+     * published, so nothing below 11.2.0.2 could ever be tested. That {@code SKIP LOCKED} arrived
+     * in Oracle 11 is Oracle's own documentation; what accent verified is that 11.2.0.2 skips.
+     *
+     * <p>Oracle 18c reports {@link #minorVersion()} ({@code getDatabaseMinorVersion()}) as {@code
+     * 0} despite being release 18.4 — harmless today because this floor is major-only, but it would
+     * silently break anyone who later adds a minor comparison here.
      */
     @Override
     public boolean supportsSkipLocked() {
