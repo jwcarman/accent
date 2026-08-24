@@ -33,7 +33,10 @@ final class SkipLockedContention {
     first.setAutoCommit(false);
     second.setAutoCommit(false);
     try {
-      // Connection one locks row 1 and holds it.
+      // Connection one locks row 1 and holds it. On an engine that rejects plain FOR UPDATE
+      // outside a cursor (SQL Server) or does not support row locking at all (SQLite), this
+      // itself fails — which is a legitimate "no" for a predicate scoped to FOR UPDATE SKIP
+      // LOCKED, not a fixture defect.
       try (Statement statement = first.createStatement()) {
         statement.executeQuery("SELECT id FROM " + TABLE + " WHERE id = 1 FOR UPDATE").close();
       }
@@ -52,10 +55,11 @@ final class SkipLockedContention {
           // returning both rows means the clause was accepted and ignored.
           return returned.equals(List.of(2));
         }
-      } catch (SQLException e) {
-        // Timed out waiting on the lock, or the clause was rejected. Either way: no.
-        return false;
       }
+    } catch (SQLException e) {
+      // Timed out waiting on the lock, the SKIP LOCKED clause was rejected, or even plain
+      // FOR UPDATE was rejected. Either way: no genuine skip-locked semantics observed.
+      return false;
     } finally {
       rollbackQuietly(first);
       rollbackQuietly(second);

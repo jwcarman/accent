@@ -110,7 +110,23 @@ public sealed interface Platform {
    * <p>Reached through {@code mysql-connector-j} this server reports product name {@code MySQL};
    * only its product version names MariaDB.
    */
-  record MariaDB(Version version) implements Platform {}
+  record MariaDB(Version version) implements Platform {
+
+    private static final int SKIP_LOCKED_MAJOR = 10;
+    private static final int SKIP_LOCKED_MINOR = 6;
+
+    /**
+     * {@inheritDoc}
+     *
+     * <p>{@code SKIP LOCKED} arrived in MariaDB 10.6. Verified by contention test against MariaDB
+     * 11.4.
+     */
+    @Override
+    public boolean supportsSkipLocked() {
+      return majorVersion() > SKIP_LOCKED_MAJOR
+          || (majorVersion() == SKIP_LOCKED_MAJOR && minorVersion() >= SKIP_LOCKED_MINOR);
+    }
+  }
 
   /** Microsoft SQL Server. */
   record SqlServer(Version version) implements Platform {}

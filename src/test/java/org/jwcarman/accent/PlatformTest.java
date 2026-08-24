@@ -55,12 +55,17 @@ class PlatformTest {
 
   @Test
   void onlyArmsProvenByContentionClaimSkipLocked() {
-    // VERSION is a PostgreSQL 17 reading, so both PostgreSQL and MySQL answer true here.
+    // VERSION is a PostgreSQL 17 reading, so PostgreSQL, MySQL and MariaDB all answer true here.
     assertThat(new PostgreSQL(VERSION).supportsSkipLocked()).isTrue();
     assertThat(new MySQL(VERSION).supportsSkipLocked()).isTrue();
+    assertThat(new MariaDB(VERSION).supportsSkipLocked()).isTrue();
 
     assertThat(allArms())
-        .filteredOn(platform -> !(platform instanceof PostgreSQL) && !(platform instanceof MySQL))
+        .filteredOn(
+            platform ->
+                !(platform instanceof PostgreSQL)
+                    && !(platform instanceof MySQL)
+                    && !(platform instanceof MariaDB))
         .allSatisfy(platform -> assertThat(platform.supportsSkipLocked()).isFalse());
   }
 
@@ -90,6 +95,20 @@ class PlatformTest {
     var boundary = new Version("MySQL", "8.0.0", 8, 0);
 
     assertThat(new MySQL(boundary).supportsSkipLocked()).isTrue();
+  }
+
+  @Test
+  void mariadbBelowTenPointSixDoesNotClaimSkipLocked() {
+    var old = new Version("MySQL", "10.5.24-MariaDB", 10, 5);
+
+    assertThat(new MariaDB(old).supportsSkipLocked()).isFalse();
+  }
+
+  @Test
+  void mariadbAtTenPointSixClaimsSkipLocked() {
+    var boundary = new Version("MySQL", "10.6.0-MariaDB", 10, 6);
+
+    assertThat(new MariaDB(boundary).supportsSkipLocked()).isTrue();
   }
 
   @Test

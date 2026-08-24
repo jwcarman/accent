@@ -5,8 +5,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.sql.SQLException;
 import org.jwcarman.accent.Accent;
 import org.junit.jupiter.api.Test;
+import org.testcontainers.containers.CockroachContainer;
+import org.testcontainers.containers.MSSQLServerContainer;
+import org.testcontainers.containers.MariaDBContainer;
 import org.testcontainers.containers.MySQLContainer;
 import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.containers.YugabyteDBYSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
@@ -74,6 +78,199 @@ class SkipLockedContentionIT {
       var platform = Accent.of(second);
 
       assertThat(skips).isTrue();
+      assertThat(platform.supportsSkipLocked())
+          .as("the arm must report what contention actually proved")
+          .isEqualTo(skips);
+    }
+  }
+
+  @Container
+  private static final MariaDBContainer<?> MARIADB =
+      new MariaDBContainer<>(DockerImageName.parse("mariadb:11.4"));
+
+  @Test
+  void mariadbSkipsLockedRowsAndSaysSo() throws SQLException {
+    try (var first =
+            Drivers.connect(
+                new org.mariadb.jdbc.Driver(),
+                MARIADB.getJdbcUrl(),
+                MARIADB.getUsername(),
+                MARIADB.getPassword());
+        var second =
+            Drivers.connect(
+                new org.mariadb.jdbc.Driver(),
+                MARIADB.getJdbcUrl(),
+                MARIADB.getUsername(),
+                MARIADB.getPassword())) {
+
+      var skips = SkipLockedContention.skipsLockedRows(first, second);
+      var platform = Accent.of(second);
+
+      assertThat(skips).isTrue();
+      assertThat(platform.supportsSkipLocked())
+          .as("the arm must report what contention actually proved")
+          .isEqualTo(skips);
+    }
+  }
+
+  @Container
+  private static final CockroachContainer COCKROACH =
+      new CockroachContainer(DockerImageName.parse("cockroachdb/cockroach:latest-v24.1"));
+
+  @Test
+  void cockroachContentionResult() throws SQLException {
+    try (var first =
+            Drivers.connect(
+                new org.postgresql.Driver(),
+                COCKROACH.getJdbcUrl(),
+                COCKROACH.getUsername(),
+                COCKROACH.getPassword());
+        var second =
+            Drivers.connect(
+                new org.postgresql.Driver(),
+                COCKROACH.getJdbcUrl(),
+                COCKROACH.getUsername(),
+                COCKROACH.getPassword())) {
+
+      var skips = SkipLockedContention.skipsLockedRows(first, second);
+      var platform = Accent.of(second);
+
+      System.out.println("MEASURED cockroach skips=" + skips);
+      assertThat(platform.supportsSkipLocked())
+          .as("the arm must report what contention actually proved")
+          .isEqualTo(skips);
+    }
+  }
+
+  private static final int YSQL_PORT = 5433;
+
+  @Container
+  private static final YugabyteDBYSQLContainer YUGABYTE =
+      new YugabyteDBYSQLContainer(DockerImageName.parse("yugabytedb/yugabyte:2024.1.0.0-b129"))
+          .withDatabaseName("yugabyte")
+          .withUsername("yugabyte")
+          .withPassword("yugabyte");
+
+  @Test
+  void yugabyteContentionResult() throws SQLException {
+    var url =
+        "jdbc:postgresql://"
+            + YUGABYTE.getHost()
+            + ":"
+            + YUGABYTE.getMappedPort(YSQL_PORT)
+            + "/yugabyte";
+
+    try (var first =
+            Drivers.connect(
+                new org.postgresql.Driver(), url, YUGABYTE.getUsername(), YUGABYTE.getPassword());
+        var second =
+            Drivers.connect(
+                new org.postgresql.Driver(), url, YUGABYTE.getUsername(), YUGABYTE.getPassword())) {
+
+      var skips = SkipLockedContention.skipsLockedRows(first, second);
+      var platform = Accent.of(second);
+
+      System.out.println("MEASURED yugabyte skips=" + skips);
+      assertThat(platform.supportsSkipLocked())
+          .as("the arm must report what contention actually proved")
+          .isEqualTo(skips);
+    }
+  }
+
+  @Container
+  private static final MSSQLServerContainer<?> SQLSERVER =
+      new MSSQLServerContainer<>(
+              DockerImageName.parse("mcr.microsoft.com/mssql/server:2022-latest"))
+          .acceptLicense();
+
+  @Test
+  void sqlServerContentionResult() throws SQLException {
+    try (var first =
+            Drivers.connect(
+                new com.microsoft.sqlserver.jdbc.SQLServerDriver(),
+                SQLSERVER.getJdbcUrl(),
+                SQLSERVER.getUsername(),
+                SQLSERVER.getPassword());
+        var second =
+            Drivers.connect(
+                new com.microsoft.sqlserver.jdbc.SQLServerDriver(),
+                SQLSERVER.getJdbcUrl(),
+                SQLSERVER.getUsername(),
+                SQLSERVER.getPassword())) {
+
+      var skips = SkipLockedContention.skipsLockedRows(first, second);
+      var platform = Accent.of(second);
+
+      System.out.println("MEASURED sqlserver skips=" + skips);
+      assertThat(platform.supportsSkipLocked())
+          .as("the arm must report what contention actually proved")
+          .isEqualTo(skips);
+    }
+  }
+
+  @Test
+  void h2ContentionResult() throws SQLException {
+    var url = "jdbc:h2:mem:accent_skiplocked_h2;DB_CLOSE_DELAY=-1";
+    try (var first = Drivers.connect(new org.h2.Driver(), url, null, null);
+        var second = Drivers.connect(new org.h2.Driver(), url, null, null)) {
+
+      var skips = SkipLockedContention.skipsLockedRows(first, second);
+      var platform = Accent.of(second);
+
+      System.out.println("MEASURED h2 skips=" + skips);
+      assertThat(platform.supportsSkipLocked())
+          .as("the arm must report what contention actually proved")
+          .isEqualTo(skips);
+    }
+  }
+
+  @Test
+  void hsqldbContentionResult() throws SQLException {
+    var url = "jdbc:hsqldb:mem:accent_skiplocked_hsqldb";
+    try (var first = Drivers.connect(new org.hsqldb.jdbc.JDBCDriver(), url, "SA", "");
+        var second = Drivers.connect(new org.hsqldb.jdbc.JDBCDriver(), url, "SA", "")) {
+
+      var skips = SkipLockedContention.skipsLockedRows(first, second);
+      var platform = Accent.of(second);
+
+      System.out.println("MEASURED hsqldb skips=" + skips);
+      assertThat(platform.supportsSkipLocked())
+          .as("the arm must report what contention actually proved")
+          .isEqualTo(skips);
+    }
+  }
+
+  @Test
+  void sqliteContentionResult() throws SQLException {
+    var url = "jdbc:sqlite:file::memory:?cache=shared";
+    try (var first = Drivers.connect(new org.sqlite.JDBC(), url, null, null);
+        var second = Drivers.connect(new org.sqlite.JDBC(), url, null, null)) {
+
+      var skips = SkipLockedContention.skipsLockedRows(first, second);
+      var platform = Accent.of(second);
+
+      System.out.println("MEASURED sqlite skips=" + skips);
+      assertThat(platform.supportsSkipLocked())
+          .as("the arm must report what contention actually proved")
+          .isEqualTo(skips);
+    }
+  }
+
+  @Test
+  void derbyContentionResult() throws SQLException {
+    var url = "jdbc:derby:memory:accent_skiplocked_derby;create=true";
+    try (var first = Drivers.connect(new org.apache.derby.jdbc.EmbeddedDriver(), url, null, null);
+        var second =
+            Drivers.connect(
+                new org.apache.derby.jdbc.EmbeddedDriver(),
+                "jdbc:derby:memory:accent_skiplocked_derby",
+                null,
+                null)) {
+
+      var skips = SkipLockedContention.skipsLockedRows(first, second);
+      var platform = Accent.of(second);
+
+      System.out.println("MEASURED derby skips=" + skips);
       assertThat(platform.supportsSkipLocked())
           .as("the arm must report what contention actually proved")
           .isEqualTo(skips);
