@@ -24,6 +24,12 @@ on:
       - '!docs/superpowers/**'
       - 'mkdocs.yml'
       - '.github/workflows/docs.yml'
+  pull_request:
+    paths:
+      - 'docs/**'
+      - '!docs/superpowers/**'
+      - 'mkdocs.yml'
+      - '.github/workflows/docs.yml'
   workflow_dispatch:
 
 concurrency:
@@ -44,11 +50,17 @@ jobs:
         run: pip install --only-binary ':all:' mkdocs-material==9.7.7
       - name: Build site
         run: mkdocs build --strict
-      - uses: actions/upload-pages-artifact@v3
+      # Pull requests only validate the build (--strict already fails the job on a broken build);
+      # the Pages artifact is neither needed nor deployable from a PR context, so skip uploading it.
+      - if: github.event_name != 'pull_request'
+        uses: actions/upload-pages-artifact@v3
         with:
           path: site
 
   deploy:
+    # Only main pushes (and manual dispatch) deploy. A pull_request run stops after `build`,
+    # giving PR-time signal on a strict mkdocs failure without ever touching Pages.
+    if: github.event_name != 'pull_request'
     needs: build
     runs-on: ubuntu-latest
     permissions:
