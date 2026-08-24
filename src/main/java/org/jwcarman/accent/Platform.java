@@ -2,8 +2,14 @@ package org.jwcarman.accent;
 
 import java.util.Objects;
 
-/** The database accent is talking to. */
-public sealed interface Platform {
+/**
+ * The database accent is talking to.
+ *
+ * <p>Not yet {@code sealed}: a sealed type requires at least one permitted subtype, and the
+ * thirteen platform arms arrive with the vocabulary. Sealing happens then, and the
+ * exhaustiveness guarantee it provides is the point of this type.
+ */
+public interface Platform {
 
   /**
    * What the JDBC driver reported, verbatim.
@@ -25,8 +31,7 @@ public sealed interface Platform {
    * @param majorVersion the driver's database major version
    * @param minorVersion the driver's database minor version
    */
-  record Version(String productName, String productVersion, int majorVersion, int minorVersion)
-      implements Platform {
+  record Version(String productName, String productVersion, int majorVersion, int minorVersion) {
 
     /** Validates that the reported strings are present. */
     public Version {
