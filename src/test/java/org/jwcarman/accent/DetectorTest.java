@@ -2,6 +2,7 @@ package org.jwcarman.accent;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import org.jwcarman.accent.Platform.CockroachDB;
 import org.jwcarman.accent.Platform.Db2;
 import org.jwcarman.accent.Platform.Derby;
 import org.jwcarman.accent.Platform.H2;
@@ -9,9 +10,11 @@ import org.jwcarman.accent.Platform.HSQLDB;
 import org.jwcarman.accent.Platform.MariaDB;
 import org.jwcarman.accent.Platform.MySQL;
 import org.jwcarman.accent.Platform.Oracle;
+import org.jwcarman.accent.Platform.PostgreSQL;
 import org.jwcarman.accent.Platform.SQLite;
 import org.jwcarman.accent.Platform.SqlServer;
 import org.jwcarman.accent.Platform.Unknown;
+import org.jwcarman.accent.Platform.YugabyteDB;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
@@ -128,6 +131,72 @@ class DetectorTest {
       assertThat(platform.productVersion()).isEqualTo("14.10.FC9W1");
       assertThat(platform.majorVersion()).isEqualTo(14);
       assertThat(platform.minorVersion()).isEqualTo(10);
+    }
+  }
+
+  @Nested
+  class PostgresFamily {
+
+    private static Fingerprint queried(String productName, String productVersion, String query) {
+      return new Fingerprint(productName, productVersion, 0, 0, query);
+    }
+
+    @Test
+    void detectsPostgresProper() {
+      var fingerprint =
+          queried(
+              ObservedStrings.POSTGRES_NAME,
+              ObservedStrings.POSTGRES_VERSION,
+              ObservedStrings.POSTGRES_VERSION_QUERY);
+
+      assertThat(Detector.detect(fingerprint)).isInstanceOf(PostgreSQL.class);
+    }
+
+    @Test
+    void detectsCockroachWhoseMetadataIsIndistinguishableFromPostgres() {
+      // productName is "PostgreSQL" and productVersion is a bare "13.0.0".
+      // Only the version() query gives it away.
+      var fingerprint =
+          queried(
+              ObservedStrings.COCKROACH_NAME,
+              ObservedStrings.COCKROACH_VERSION,
+              ObservedStrings.COCKROACH_VERSION_QUERY);
+
+      assertThat(Detector.detect(fingerprint)).isInstanceOf(CockroachDB.class);
+    }
+
+    @Test
+    void detectsYugabyte() {
+      var fingerprint =
+          queried(
+              ObservedStrings.YUGABYTE_NAME,
+              ObservedStrings.YUGABYTE_VERSION,
+              ObservedStrings.YUGABYTE_VERSION_QUERY);
+
+      assertThat(Detector.detect(fingerprint)).isInstanceOf(YugabyteDB.class);
+    }
+
+    @Test
+    void doesNotMistakeCockroachForPostgresBecauseTheVersionQueryLeads() {
+      // Cockroach's version() does not even begin with "PostgreSQL".
+      assertThat(ObservedStrings.COCKROACH_VERSION_QUERY).doesNotStartWith("PostgreSQL");
+    }
+
+    @Test
+    void matchesTheMarkersRegardlessOfCase() {
+      assertThat(Detector.detect(queried("postgresql", "13.0.0", "cockroachdb ccl v24.1.32")))
+          .isInstanceOf(CockroachDB.class);
+      assertThat(Detector.detect(queried("postgresql", "11.2", "postgresql 11.2-yb-2024.1.0.0-b0")))
+          .isInstanceOf(YugabyteDB.class);
+    }
+
+    @Test
+    void refusesToGuessWhenTheQueryIsMissing() {
+      // Without version() there is no way to rule out an impostor, and guessing "PostgreSQL"
+      // is the precise bug accent exists to prevent. Unknown is the honest answer.
+      var fingerprint = queried(ObservedStrings.POSTGRES_NAME, ObservedStrings.POSTGRES_VERSION, null);
+
+      assertThat(Detector.detect(fingerprint)).isInstanceOf(Unknown.class);
     }
   }
 

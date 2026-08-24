@@ -1,6 +1,7 @@
 package org.jwcarman.accent;
 
 import java.util.Locale;
+import org.jwcarman.accent.Platform.CockroachDB;
 import org.jwcarman.accent.Platform.Db2;
 import org.jwcarman.accent.Platform.Derby;
 import org.jwcarman.accent.Platform.H2;
@@ -8,10 +9,12 @@ import org.jwcarman.accent.Platform.HSQLDB;
 import org.jwcarman.accent.Platform.MariaDB;
 import org.jwcarman.accent.Platform.MySQL;
 import org.jwcarman.accent.Platform.Oracle;
+import org.jwcarman.accent.Platform.PostgreSQL;
 import org.jwcarman.accent.Platform.SQLite;
 import org.jwcarman.accent.Platform.SqlServer;
 import org.jwcarman.accent.Platform.Unknown;
 import org.jwcarman.accent.Platform.Version;
+import org.jwcarman.accent.Platform.YugabyteDB;
 
 /**
  * Maps what a database reported onto the {@link Platform} vocabulary.
@@ -27,6 +30,8 @@ import org.jwcarman.accent.Platform.Version;
 final class Detector {
 
   private static final String MARIADB_MARKER = "mariadb";
+  private static final String COCKROACH_MARKER = "cockroachdb";
+  private static final String YUGABYTE_MARKER = "-yb-";
 
   private Detector() {}
 
@@ -87,9 +92,29 @@ final class Detector {
     return new Unknown(version);
   }
 
-  /** Filled in by Task 6. */
+  /**
+   * Separates PostgreSQL from the engines that impersonate it.
+   *
+   * <p>This is the one family metadata cannot resolve, so it is resolved from {@code SELECT
+   * version()}. CockroachDB's result does not begin with {@code PostgreSQL} at all; YugabyteDB's
+   * embeds a {@code -YB-} marker in its version number.
+   *
+   * <p>A missing query yields {@link Unknown} rather than a guess. Returning {@code PostgreSQL}
+   * without having ruled out CockroachDB would ship exactly the silent misidentification accent
+   * exists to prevent.
+   */
   private static Platform postgresFamily(Fingerprint fingerprint, Version version) {
-    return new Unknown(version);
+    var query = normalise(fingerprint.versionQuery());
+    if (query.isEmpty()) {
+      return new Unknown(version);
+    }
+    if (query.contains(COCKROACH_MARKER)) {
+      return new CockroachDB(version);
+    }
+    if (query.contains(YUGABYTE_MARKER)) {
+      return new YugabyteDB(version);
+    }
+    return new PostgreSQL(version);
   }
 
   /**
