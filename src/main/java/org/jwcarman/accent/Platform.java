@@ -180,7 +180,22 @@ public sealed interface Platform {
   record Db2(Version version) implements Platform {}
 
   /** H2. */
-  record H2(Version version) implements Platform {}
+  record H2(Version version) implements Platform {
+
+    /**
+     * {@inheritDoc}
+     *
+     * <p>H2 parses {@code FOR UPDATE SKIP LOCKED}, which contradicted an earlier guess that it
+     * would not. Whether it genuinely skips was unknown until measured: a contention test against
+     * H2 2.3.232 confirms a second connection does skip a row locked by a first rather than
+     * blocking. Unconditionally {@code true} because no earlier H2 version was tested and no
+     * documented floor is known; only 2.3.232 was measured.
+     */
+    @Override
+    public boolean supportsSkipLocked() {
+      return true;
+    }
+  }
 
   /** HSQLDB, which reports itself as {@code HSQL Database Engine}. */
   record HSQLDB(Version version) implements Platform {}

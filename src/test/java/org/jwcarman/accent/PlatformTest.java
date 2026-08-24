@@ -55,13 +55,14 @@ class PlatformTest {
 
   @Test
   void onlyArmsProvenByContentionClaimSkipLocked() {
-    // VERSION is a PostgreSQL 17 reading, so PostgreSQL, MySQL, MariaDB, CockroachDB and
-    // YugabyteDB all answer true here.
+    // VERSION is a PostgreSQL 17 reading, so PostgreSQL, MySQL, MariaDB, CockroachDB, YugabyteDB
+    // and H2 all answer true here.
     assertThat(new PostgreSQL(VERSION).supportsSkipLocked()).isTrue();
     assertThat(new MySQL(VERSION).supportsSkipLocked()).isTrue();
     assertThat(new MariaDB(VERSION).supportsSkipLocked()).isTrue();
     assertThat(new CockroachDB(VERSION).supportsSkipLocked()).isTrue();
     assertThat(new YugabyteDB(VERSION).supportsSkipLocked()).isTrue();
+    assertThat(new H2(VERSION).supportsSkipLocked()).isTrue();
 
     assertThat(allArms())
         .filteredOn(
@@ -70,7 +71,8 @@ class PlatformTest {
                     && !(platform instanceof MySQL)
                     && !(platform instanceof MariaDB)
                     && !(platform instanceof CockroachDB)
-                    && !(platform instanceof YugabyteDB))
+                    && !(platform instanceof YugabyteDB)
+                    && !(platform instanceof H2))
         .allSatisfy(platform -> assertThat(platform.supportsSkipLocked()).isFalse());
   }
 

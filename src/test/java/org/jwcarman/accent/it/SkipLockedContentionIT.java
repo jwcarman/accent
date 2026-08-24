@@ -211,7 +211,7 @@ class SkipLockedContentionIT {
   }
 
   @Test
-  void h2ContentionResult() throws SQLException {
+  void h2SkipsLockedRowsAndSaysSo() throws SQLException {
     var url = "jdbc:h2:mem:accent_skiplocked_h2;DB_CLOSE_DELAY=-1";
     try (var first = Drivers.connect(new org.h2.Driver(), url, null, null);
         var second = Drivers.connect(new org.h2.Driver(), url, null, null)) {
@@ -219,7 +219,8 @@ class SkipLockedContentionIT {
       var skips = SkipLockedContention.skipsLockedRows(first, second);
       var platform = Accent.of(second);
 
-      System.out.println("MEASURED h2 skips=" + skips);
+      // H2 parses the clause; this is the test that settles whether it genuinely skips.
+      assertThat(skips).isTrue();
       assertThat(platform.supportsSkipLocked())
           .as("the arm must report what contention actually proved")
           .isEqualTo(skips);
