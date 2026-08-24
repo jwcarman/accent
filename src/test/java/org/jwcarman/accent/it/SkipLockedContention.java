@@ -101,7 +101,7 @@ final class SkipLockedContention {
     try (Statement statement = connection.createStatement()) {
       try {
         statement.execute("DROP TABLE " + TABLE);
-      } catch (SQLException ignored) {
+      } catch (SQLException _) {
         // Absent is the normal case on a fresh container.
       }
       statement.execute("CREATE TABLE " + TABLE + " (id INTEGER NOT NULL PRIMARY KEY)");
@@ -113,7 +113,7 @@ final class SkipLockedContention {
   private static void rollbackQuietly(Connection connection) {
     try {
       connection.rollback();
-    } catch (SQLException ignored) {
+    } catch (SQLException _) {
       // Rollback failure is not the fact under measurement.
     }
   }

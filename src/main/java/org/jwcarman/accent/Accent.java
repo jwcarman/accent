@@ -79,29 +79,6 @@ public final class Accent {
     return new Builder(null);
   }
 
-  private static Fingerprint fingerprint(DatabaseMetaData metaData) {
-    try {
-      var productName = metaData.getDatabaseProductName();
-      var versionQuery =
-          Detector.needsVersionQuery(productName) ? queryVersion(metaData.getConnection()) : null;
-      return new Fingerprint(
-          productName,
-          metaData.getDatabaseProductVersion(),
-          metaData.getDatabaseMajorVersion(),
-          metaData.getDatabaseMinorVersion(),
-          versionQuery);
-    } catch (SQLException e) {
-      throw new AccentException("could not read database metadata", e);
-    }
-  }
-
-  private static String queryVersion(Connection connection) throws SQLException {
-    try (var statement = connection.createStatement();
-        var resultSet = statement.executeQuery(VERSION_QUERY)) {
-      return resultSet.next() ? resultSet.getString(1) : null;
-    }
-  }
-
   /**
    * Configures detection for callers who can identify a database accent cannot.
    *
@@ -174,6 +151,29 @@ public final class Accent {
       }
       var supplied = fallback.apply(platform.version());
       return supplied == null ? platform : supplied;
+    }
+
+    private static Fingerprint fingerprint(DatabaseMetaData metaData) {
+      try {
+        var productName = metaData.getDatabaseProductName();
+        var versionQuery =
+            Detector.needsVersionQuery(productName) ? queryVersion(metaData.getConnection()) : null;
+        return new Fingerprint(
+            productName,
+            metaData.getDatabaseProductVersion(),
+            metaData.getDatabaseMajorVersion(),
+            metaData.getDatabaseMinorVersion(),
+            versionQuery);
+      } catch (SQLException e) {
+        throw new AccentException("could not read database metadata", e);
+      }
+    }
+
+    private static String queryVersion(Connection connection) throws SQLException {
+      try (var statement = connection.createStatement();
+          var resultSet = statement.executeQuery(VERSION_QUERY)) {
+        return resultSet.next() ? resultSet.getString(1) : null;
+      }
     }
   }
 }
