@@ -2,3 +2,11 @@ target/
 *.iml
 .idea/
 .DS_Store
+
+# Eclipse/JDT project artifacts
+.classpath
+.project
+.settings/
+
+# Written into the working directory by the Derby embedded engine tests, not an IDE file
+derby.log
