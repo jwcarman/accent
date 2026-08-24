@@ -144,3 +144,71 @@ proves the statement is not a syntax error; it does not prove concurrent claims
 skip locked rows rather than blocking. A capability predicate that a caller
 trusts for outbox claiming needs a genuine two-connection contention test, not a
 parse check.
+
+## Heavy images
+
+Both ran on arm64. Db2 has no `linux/arm64` manifest and the pull first 404s;
+Docker Desktop then falls back to amd64 emulation and the container starts.
+Treat Db2 as CI-verified (amd64 runners) rather than reliably reproducible on
+an Apple Silicon workstation.
+
+| Server (image) | Driver | `productName` | `productVersion` | major.minor |
+|---|---|---|---|---|
+| `gvenzl/oracle-free:23-slim-faststart` | ojdbc11 23.6.0.24.10 | `Oracle` | *(two lines — see below)* | 23.26 |
+| `icr.io/db2_community/db2:12.1.0.0` | jcc 4.34.30 | `DB2/LINUXX8664` | `SQL120100` | 12.1 |
+
+### Oracle's product version contains a newline
+
+Verbatim, including the embedded line break:
+
+```
+Oracle AI Database 26ai Free Release 23.26.2.0.0 - Develop, Learn, and Run for Free
+Version 23.26.2.0.0
+```
+
+Two consequences. Any fixture holding this string must preserve the newline, so
+it belongs in a text block rather than a quoted literal. And any heuristic that
+inspects Oracle's version string must not assume a single line — a
+`contains`-style check is safe, a `startsWith`/full-match or a regex anchored
+with `$` is not.
+
+Note also that the marketing name (`Oracle AI Database 26ai`) and the release
+number (`23.26.2.0.0`) disagree. `getDatabaseMajorVersion()` reports 23. Trust
+the integer accessors, not the prose.
+
+### Db2's product version is not a version number
+
+`SQL120100` is a build identifier, not a dotted version. Nothing can be parsed
+out of it by splitting on `.`, and code that tries will silently produce
+garbage. `getDatabaseMajorVersion()` / `getDatabaseMinorVersion()` report 12
+and 1 correctly, so the integer accessors are the only usable source here.
+
+`productName` is `DB2/LINUXX8664` — the arch-specific suffix `SPEC.md` §5
+predicted. A case-insensitive `DB2` **prefix** match is the right test; equality
+would fail on every platform variant.
+
+### SKIP LOCKED
+
+| Engine | Accepted syntax | Result |
+|---|---|---|
+| Oracle 23 | `FOR UPDATE SKIP LOCKED` | accepted |
+| Db2 12.1 | `FOR UPDATE SKIP LOCKED` | accepted |
+
+Db2 accepted the standard spelling; the `SKIP LOCKED DATA` variant was not
+needed. As with every other row in this file, acceptance is a parse result and
+not evidence about locking semantics.
+
+## Summary of what recon changed
+
+| `SPEC.md` §5 hypothesis | Verdict |
+|---|---|
+| MariaDB via mysql-connector-j reports `MySQL`, version contains `MariaDB` | **confirmed** |
+| YugabyteDB via pgjdbc identifiable from version string | **confirmed** (`-YB-`) |
+| CockroachDB via pgjdbc: version string contains `CockroachDB` | **refuted** — bare `13.0.0`, needs `SELECT version()` |
+| Db2 product name is `DB2/...`, prefix match | **confirmed** (`DB2/LINUXX8664`) |
+| H2 does not support `SKIP LOCKED` (§4.3) | **refuted** — H2 2.3 parses it |
+| Redshift | **unverifiable**, not shipped (§6.3) |
+
+Two engines could not be measured and are not shipping arms in 0.1.0: Redshift
+(no image exists) and nothing else. Every other arm in the vocabulary now rests
+on a string observed above rather than on a guess.
