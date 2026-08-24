@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.sql.SQLException;
 import org.jwcarman.accent.Accent;
 import org.junit.jupiter.api.Test;
+import org.testcontainers.containers.MySQLContainer;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -39,6 +40,35 @@ class SkipLockedContentionIT {
                 POSTGRES.getJdbcUrl(),
                 POSTGRES.getUsername(),
                 POSTGRES.getPassword())) {
+
+      var skips = SkipLockedContention.skipsLockedRows(first, second);
+      var platform = Accent.of(second);
+
+      assertThat(skips).isTrue();
+      assertThat(platform.supportsSkipLocked())
+          .as("the arm must report what contention actually proved")
+          .isEqualTo(skips);
+    }
+  }
+
+  @Container
+  private static final MySQLContainer<?> MYSQL =
+      new MySQLContainer<>(DockerImageName.parse("mysql:8.4"));
+
+  @Test
+  void mysqlSkipsLockedRowsAndSaysSo() throws SQLException {
+    try (var first =
+            Drivers.connect(
+                new com.mysql.cj.jdbc.Driver(),
+                MYSQL.getJdbcUrl(),
+                MYSQL.getUsername(),
+                MYSQL.getPassword());
+        var second =
+            Drivers.connect(
+                new com.mysql.cj.jdbc.Driver(),
+                MYSQL.getJdbcUrl(),
+                MYSQL.getUsername(),
+                MYSQL.getPassword())) {
 
       var skips = SkipLockedContention.skipsLockedRows(first, second);
       var platform = Accent.of(second);

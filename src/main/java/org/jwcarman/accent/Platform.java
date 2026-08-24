@@ -87,7 +87,22 @@ public sealed interface Platform {
   record YugabyteDB(Version version) implements Platform {}
 
   /** MySQL proper, having ruled out MariaDB reached through a MySQL driver. */
-  record MySQL(Version version) implements Platform {}
+  record MySQL(Version version) implements Platform {
+
+    private static final int SKIP_LOCKED_MAJOR = 8;
+    private static final int SKIP_LOCKED_MINOR = 0;
+
+    /**
+     * {@inheritDoc}
+     *
+     * <p>{@code SKIP LOCKED} arrived in MySQL 8.0. Verified by contention test against MySQL 8.4.
+     */
+    @Override
+    public boolean supportsSkipLocked() {
+      return majorVersion() > SKIP_LOCKED_MAJOR
+          || (majorVersion() == SKIP_LOCKED_MAJOR && minorVersion() >= SKIP_LOCKED_MINOR);
+    }
+  }
 
   /**
    * MariaDB.

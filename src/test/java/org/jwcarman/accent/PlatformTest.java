@@ -55,11 +55,12 @@ class PlatformTest {
 
   @Test
   void onlyArmsProvenByContentionClaimSkipLocked() {
-    // VERSION is a PostgreSQL 17 reading, so only the PostgreSQL arm answers true here.
+    // VERSION is a PostgreSQL 17 reading, so both PostgreSQL and MySQL answer true here.
     assertThat(new PostgreSQL(VERSION).supportsSkipLocked()).isTrue();
+    assertThat(new MySQL(VERSION).supportsSkipLocked()).isTrue();
 
     assertThat(allArms())
-        .filteredOn(platform -> !(platform instanceof PostgreSQL))
+        .filteredOn(platform -> !(platform instanceof PostgreSQL) && !(platform instanceof MySQL))
         .allSatisfy(platform -> assertThat(platform.supportsSkipLocked()).isFalse());
   }
 
@@ -75,6 +76,20 @@ class PlatformTest {
     var boundary = new Version("PostgreSQL", "9.5.25", 9, 5);
 
     assertThat(new PostgreSQL(boundary).supportsSkipLocked()).isTrue();
+  }
+
+  @Test
+  void mysqlBelowEightDoesNotClaimSkipLocked() {
+    var old = new Version("MySQL", "5.7.44", 5, 7);
+
+    assertThat(new MySQL(old).supportsSkipLocked()).isFalse();
+  }
+
+  @Test
+  void mysqlAtEightClaimsSkipLocked() {
+    var boundary = new Version("MySQL", "8.0.0", 8, 0);
+
+    assertThat(new MySQL(boundary).supportsSkipLocked()).isTrue();
   }
 
   @Test
