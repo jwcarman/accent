@@ -92,8 +92,9 @@ pgjdbc-reported PostgreSQL versions carry a build suffix such as
 `(Debian 17.10-1.pgdg13+1)` while CockroachDB reports a bare `13.0.0` — and a
 build suffix is not something any vendor guarantees.
 
-**CockroachDB cannot be detected from `DatabaseMetaData` alone.** See §
-"Beyond metadata" below.
+**CockroachDB cannot be detected from the four identity fields accent reads.**
+It is not, however, wholly indistinguishable through `DatabaseMetaData` — see
+"How alike, exactly" below, which measures that claim rather than asserting it.
 
 ## Beyond metadata: what the server will tell you when asked
 
@@ -212,3 +213,57 @@ not evidence about locking semantics.
 Two engines could not be measured and are not shipping arms in 0.1.0: Redshift
 (no image exists) and nothing else. Every other arm in the vocabulary now rests
 on a string observed above rather than on a guess.
+
+## How alike, exactly: CockroachDB vs PostgreSQL 13
+
+An earlier draft of this file claimed CockroachDB was indistinguishable from
+PostgreSQL through `DatabaseMetaData`. That claim generalised from four measured
+fields to the whole interface, and it is wrong. Measured properly — CockroachDB
+v24.1 against `postgres:13`, the version Cockroach claims, across all 135 no-arg
+scalar `DatabaseMetaData` methods — **122 are identical and 13 differ.**
+
+Two of the 13 are environmental (`getURL`, `getUserName`) and two are ordinary
+version differences. Nine are genuine identity signals:
+
+| Method | PostgreSQL 13 | CockroachDB 24.1 |
+|---|---|---|
+| `getSQLKeywords()` | Postgres keyword list | contains `changefeed`, `backup`, `kv`, `nonvoters`, `virtual_cluster` |
+| `getDefaultTransactionIsolation()` | `2` (READ_COMMITTED) | `8` (SERIALIZABLE) |
+| `getMaxCatalogNameLength()` | `63` | `-2` |
+| `getMaxColumnNameLength()` | `63` | `-2` |
+| `getMaxCursorNameLength()` | `63` | `-2` |
+| `getMaxProcedureNameLength()` | `63` | `-2` |
+| `getMaxSchemaNameLength()` | `63` | `-2` |
+| `getMaxTableNameLength()` | `63` | `-2` |
+| `getMaxUserNameLength()` | `63` | `-2` |
+
+### Why accent still queries `SELECT version()`
+
+Not because nothing else distinguishes them, but because nothing else
+distinguishes them *well*.
+
+**None of these is a free local read.** pgjdbc implements `getSQLKeywords()`,
+the `getMax*NameLength()` family and `getDefaultTransactionIsolation()` by
+querying the server — `pg_catalog.pg_get_keywords()`, `pg_catalog.pg_settings`.
+They are round trips with the query hidden inside the driver. So
+`of(DatabaseMetaData)` was never query-free, and choosing `SELECT version()`
+does not introduce I/O that these alternatives avoid. It only makes the I/O
+explicit.
+
+**Each is a weaker signal.**
+
+- `getDefaultTransactionIsolation()` is unusable. `default_transaction_isolation`
+  is a configurable Postgres setting, so a PostgreSQL server configured for
+  serializable reports `8` as well. That is a false positive on the exact
+  database accent must not misidentify.
+- `-2` from the `getMax*NameLength()` family means "unknown", not "CockroachDB".
+  Detection resting on an engine failing to answer breaks silently the day the
+  engine starts answering.
+- `getSQLKeywords()` content is the strongest of the three — `changefeed` is
+  distinctly CockroachDB — but the list is large and shifts between releases,
+  so pinning a heuristic to it means re-verifying on every Cockroach upgrade.
+
+`SELECT version()` is one explicit round trip returning a documented string that
+names the product outright. It is cheaper than `getSQLKeywords()`, stable across
+releases in a way a keyword list is not, and it identifies every member of the
+family rather than just one. That is why it is the seam.
