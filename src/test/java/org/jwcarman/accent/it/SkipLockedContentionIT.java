@@ -184,7 +184,7 @@ class SkipLockedContentionIT {
           .acceptLicense();
 
   @Test
-  void sqlServerContentionResult() throws SQLException {
+  void sqlServerDoesNotSkipLockedRowsAndSaysSo() throws SQLException {
     try (var first =
             Drivers.connect(
                 new com.microsoft.sqlserver.jdbc.SQLServerDriver(),
@@ -201,7 +201,9 @@ class SkipLockedContentionIT {
       var skips = SkipLockedContention.skipsLockedRows(first, second);
       var platform = Accent.of(second);
 
-      System.out.println("MEASURED sqlserver skips=" + skips);
+      // SQL Server has no FOR UPDATE SKIP LOCKED clause. Plain FOR UPDATE is itself rejected
+      // outside a cursor, so this must be false — see the javadoc on Platform.SqlServer.
+      assertThat(skips).isFalse();
       assertThat(platform.supportsSkipLocked())
           .as("the arm must report what contention actually proved")
           .isEqualTo(skips);

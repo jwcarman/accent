@@ -158,7 +158,19 @@ public sealed interface Platform {
     }
   }
 
-  /** Microsoft SQL Server. */
+  /**
+   * Microsoft SQL Server.
+   *
+   * <p>{@link #supportsSkipLocked()} correctly inherits {@code false} here and must stay that
+   * way. SQL Server has no {@code FOR UPDATE SKIP LOCKED} clause; its nearest equivalent is
+   * {@code WITH (UPDLOCK, READPAST)}, a different statement with different semantics.
+   * {@code supportsSkipLocked()} is documented as covering the {@code FOR UPDATE SKIP LOCKED}
+   * clause specifically, and a contention test against SQL Server 2022 using that exact clause
+   * confirms it: plain {@code FOR UPDATE} itself is rejected outside a cursor declaration
+   * ("FOR UPDATE clause allowed only for DECLARE CURSOR"), so no skip is ever observed. Do not
+   * "fix" this arm to {@code true} on the strength of {@code READPAST} — that is a different
+   * capability this predicate does not cover.
+   */
   record SqlServer(Version version) implements Platform {}
 
   /** Oracle Database. Its product version spans two lines. */
