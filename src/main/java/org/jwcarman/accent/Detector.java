@@ -52,8 +52,13 @@ final class Detector {
   private static final String COCKROACH_MARKER = "cockroachdb";
   private static final String YUGABYTE_MARKER = "-yb-";
 
-  private static final Pattern COCKROACH_ENGINE_VERSION = Pattern.compile("v(\\d+)\\.(\\d+)");
-  private static final Pattern YUGABYTE_ENGINE_VERSION = Pattern.compile("-YB-(\\d+)\\.(\\d+)");
+  // CASE_INSENSITIVE to match the case-insensitive marker detection in postgresFamily below —
+  // drivers do not guarantee casing, and a mismatch here would silently downgrade a genuine
+  // capability to false instead of failing loudly.
+  private static final Pattern COCKROACH_ENGINE_VERSION =
+      Pattern.compile("v(\\d+)\\.(\\d+)", Pattern.CASE_INSENSITIVE);
+  private static final Pattern YUGABYTE_ENGINE_VERSION =
+      Pattern.compile("-YB-(\\d+)\\.(\\d+)", Pattern.CASE_INSENSITIVE);
 
   private Detector() {}
 

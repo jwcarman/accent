@@ -272,6 +272,33 @@ class DetectorTest {
     }
 
     @Test
+    void parsesCockroachsEngineVersionRegardlessOfCase() {
+      // Synthetic, not observed: pins the parser's robustness to a marker case no real driver
+      // has shown accent, not a measured driver behaviour. Detection is already case-insensitive
+      // (see matchesTheMarkersRegardlessOfCase above); this proves engine-version parsing stays
+      // consistent with it rather than silently downgrading a genuine capability to false.
+      var fingerprint = queried("PostgreSQL", "13.0.0", "COCKROACHDB CCL V22.2.19 (...)");
+
+      var platform = (CockroachDB) Detector.detect(fingerprint);
+
+      assertThat(platform.engine().major()).isEqualTo(22);
+      assertThat(platform.engine().minor()).isEqualTo(2);
+      assertThat(platform.supportsSkipLocked()).isTrue();
+    }
+
+    @Test
+    void parsesYugabytesEngineVersionRegardlessOfCase() {
+      // Synthetic, not observed: same purpose as the CockroachDB case above, for the -yb- marker.
+      var fingerprint = queried("PostgreSQL", "11.2", "postgresql 11.2-yb-2.16.9.0-b0 on ...");
+
+      var platform = (YugabyteDB) Detector.detect(fingerprint);
+
+      assertThat(platform.engine().major()).isEqualTo(2);
+      assertThat(platform.engine().minor()).isEqualTo(16);
+      assertThat(platform.supportsSkipLocked()).isTrue();
+    }
+
+    @Test
     void refusesToGuessWhenTheQueryIsMissing() {
       // Without version() there is no way to rule out an impostor, and guessing "PostgreSQL"
       // is the precise bug accent exists to prevent. Unknown is the honest answer.
