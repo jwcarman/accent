@@ -142,19 +142,19 @@ class PlatformTest {
     Platform platform = new Unknown(VERSION);
     var name =
         switch (platform) {
-          case PostgreSQL p -> "postgresql";
-          case CockroachDB p -> "cockroachdb";
-          case YugabyteDB p -> "yugabytedb";
-          case MySQL p -> "mysql";
-          case MariaDB p -> "mariadb";
-          case SqlServer p -> "sqlserver";
-          case Oracle p -> "oracle";
-          case Db2 p -> "db2";
-          case H2 p -> "h2";
-          case HSQLDB p -> "hsqldb";
-          case SQLite p -> "sqlite";
-          case Derby p -> "derby";
-          case Unknown p -> "unknown";
+          case PostgreSQL _ -> "postgresql";
+          case CockroachDB _ -> "cockroachdb";
+          case YugabyteDB _ -> "yugabytedb";
+          case MySQL _ -> "mysql";
+          case MariaDB _ -> "mariadb";
+          case SqlServer _ -> "sqlserver";
+          case Oracle _ -> "oracle";
+          case Db2 _ -> "db2";
+          case H2 _ -> "h2";
+          case HSQLDB _ -> "hsqldb";
+          case SQLite _ -> "sqlite";
+          case Derby _ -> "derby";
+          case Unknown _ -> "unknown";
         };
 
     assertThat(name).isEqualTo("unknown");
