@@ -72,7 +72,33 @@ both jars are on the classpath `DriverManager` may hand a `jdbc:postgresql:`
 URL to the YugabyteDB driver instead of pgjdbc. The first measurement of row 3
 was silently taken through the wrong driver. The value above was re-measured
 with an explicit `new org.postgresql.Driver()`. accent's integration tests must
-do the same, or keep the YugabyteDB driver off the test classpath entirely.
+do the same.
+
+**You cannot simply remove the YugabyteDB driver.** The obvious reaction to a
+driver that hijacks `jdbc:postgresql:` URLs is to keep it off the classpath —
+and that does not work. `YugabyteDBYSQLContainer`'s own wait strategy requires
+`com.yugabyte.Driver` to start the container at all; without it the container
+fails with `ClassNotFoundException` before any test runs. The driver you are
+trying to avoid is the one you need in order to have a server to test against.
+Confirmed independently by [continuum](https://github.com/jwcarman/continuum),
+which hit the same wall from the other direction.
+
+So the driver has to be present, and the rule is narrower than "don't have it":
+
+> **Never let `DriverManager` choose.**
+
+Two escapes satisfy that, and they are equivalent — neither consults
+`DriverManager`, so registration order cannot capture the connection:
+
+- Construct the driver explicitly and call it directly:
+  `new org.postgresql.Driver().connect(url, props)`. This is what accent's
+  `Drivers.connect(...)` helper does.
+- Use `PGSimpleDataSource`, which never goes through `DriverManager` either.
+  This is continuum's approach.
+
+accent's pom carries the YugabyteDB driver in test scope with a comment saying
+it exists only so the container can start, never to serve a connection under
+test.
 
 ### Row 2 refutes the hypothesis for CockroachDB — the important finding
 

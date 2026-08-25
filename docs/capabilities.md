@@ -40,6 +40,64 @@ under concurrency. That's exactly the failure `Db2#supportsSkipLocked()`
 returning `false` exists to prevent — and it's the reason every arm that
 claims `true` is backed by a contention test, not a parse check.
 
+### Three grades of failure
+
+Db2 is one instance of a general pattern, and the grades are not equally
+dangerous. This taxonomy is joint work with
+[continuum](https://github.com/jwcarman/continuum), whose TCK found the third
+grade independently at a different layer:
+
+| Grade | Instances | Why it matters |
+|---|---|---|
+| **Rejects the syntax** | HSQLDB, SQLite, Derby | Honest. You find out immediately, at the first statement. |
+| **Accepts and fails loudly** | YugabyteDB under transaction contention (`Restart read required`) | Programmable against. A client that retries serialization failures can hold the guarantee. |
+| **Accepts and silently does not do it** | Db2's ignored `SKIP LOCKED`; CockroachDB's uncomposed `FOR UPDATE` | The grade that costs someone a production incident. Nothing in the response tells you. |
+
+Only the third grade needs a contention test to detect. The first announces
+itself; the second announces itself under load. The third looks exactly like
+success.
+
+## The limit of this predicate
+
+`supportsSkipLocked()` answers one question about one clause. It is **not** a
+general statement that a platform's locking is sound, and treating it as one
+will burn you. A concrete case, measured by continuum's TCK rather than by
+accent:
+
+Continuum ran its concurrency battery against CockroachDB v24.1 and
+YugabyteDB 2024.1 through an unmodified PostgreSQL provider — six runs per
+platform, roughly 300 register-versus-complete races each.
+
+**The skip-locked capability held.** Their competing-consumer suites, which
+run over `FOR UPDATE SKIP LOCKED`, passed every run on both platforms. That
+is independent confirmation of what accent measures here, at a scale accent's
+own harness does not reach.
+
+**Both platforms failed certification anyway** — on something else entirely.
+Plain `FOR UPDATE` mutual exclusion did not compose with a multi-statement
+transaction. CockroachDB failed all six runs, usually with a retryable
+`SQLSTATE 40001`, but **twice silently**: both transactions committed, a
+record was durably written, its dependent record was never created, and no
+error was raised anywhere. YugabyteDB also failed all six, but always loudly
+and identically — zero silent violations.
+
+So: **a platform can pass a skip-locked contention test and silently break
+plain-`FOR UPDATE` mutual exclusion in the same session. Capability true,
+certification failed, both correct.**
+
+Note the CockroachDB container was `latest-v24.1`, comfortably above the
+measured 22.2 floor below. This is not an artefact of an old release; the
+composition failure is present in a current one while skip-locked genuinely
+works.
+
+This is also why accent does not offer a second predicate for "does plain
+`FOR UPDATE` give mutual exclusion here". On continuum's own data that answer
+varies with isolation semantics and client retry behaviour *within a single
+platform*, so it is not a property of platform identity at all. It is a
+certification question, and a test suite that exercises your actual workload
+is the thing that can answer it. Detail:
+[continuum's multi-dialect JDBC plan](https://github.com/jwcarman/continuum/blob/main/docs/superpowers/plans/2026-08-24-multi-dialect-jdbc.md).
+
 ## The methodology
 
 The contention harness (`SkipLockedContention.skipsLockedRows`, exercised by
