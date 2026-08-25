@@ -18,6 +18,7 @@ package org.jwcarman.accent.it;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.sql.SQLException;
+import java.time.Duration;
 import java.util.Properties;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -183,11 +184,17 @@ class SkipLockedContentionFloorsIT {
   // These fail if someone later raises a floor above what was measured.
 
   @Container
+  // Oracle images are slow to become ready and Testcontainers' default startup timeout is 60
+  // seconds. On a loaded CI runner this container has taken 15 seconds on one run and timed out
+  // past 62 on another, for the same image and the same commit — a docs-only change failed the
+  // build. The generous timeout below trades a slower worst case for a build that fails only when
+  // something is actually wrong.
   private static final OracleContainer ORACLE_11_2 =
       // The oracle-xe module's org.testcontainers.containers.OracleContainer, not oracle-free's
       // org.testcontainers.oracle.OracleContainer — 11g XE predates pluggable databases, so the
       // oracle-free module's PDB-shaped wait strategy and JDBC URL do not apply here.
-      new OracleContainer(DockerImageName.parse("gvenzl/oracle-xe:11.2.0.2-slim"));
+      new OracleContainer(DockerImageName.parse("gvenzl/oracle-xe:11.2.0.2-slim"))
+          .withStartupTimeout(Duration.ofMinutes(5));
 
   @Test
   void oracle11Point2SkipsLockedRowsAndSaysSo() throws SQLException {
